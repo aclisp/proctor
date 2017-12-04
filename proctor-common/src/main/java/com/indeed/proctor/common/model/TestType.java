@@ -93,19 +93,19 @@ public final class TestType implements JsonSerializable {
         return name.hashCode();
     }
 
-    public static final TestType ANONYMOUS_USER = register("USER");
+    public static final TestType ANONYMOUS_USER = register("ANONYMOUS_USER");
     /**
      * @deprecated Use the more descriptive {@link #ANONYMOUS_USER} instead
      */
     public static final TestType USER = ANONYMOUS_USER;
 
-    public static final TestType AUTHENTICATED_USER = register("ACCOUNT");
+    public static final TestType AUTHENTICATED_USER = register("AUTHENTICATED_USER");
     /**
      * @deprecated Use the more descriptive {@link #AUTHENTICATED_USER} instead
      */
     public static final TestType ACCOUNT = AUTHENTICATED_USER;
 
-    public static final TestType EMAIL_ADDRESS = register("EMAIL");
+    public static final TestType EMAIL_ADDRESS = register("EMAIL_ADDRESS");
     /**
      * @deprecated Use the more descriptive {@link #EMAIL_ADDRESS} instead
      */
@@ -120,4 +120,7 @@ public final class TestType implements JsonSerializable {
      * @deprecated Legacy from migration to github
      */
     public static final TestType COMPANY = register("COMPANY");
+
+    public static final TestType DEVICE_ID = register("DEVICE_ID");
+    public static final TestType USER_ID = register("USER_ID");
 }

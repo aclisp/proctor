@@ -101,7 +101,7 @@ public class RuleEvaluator {
         };
     }
 
-    public boolean evaluateBooleanRule(@Nonnull final String rule, @Nonnull final Map<String, Object> values) throws IllegalArgumentException {
+    public boolean evaluateBooleanRule(final String rule, @Nonnull final Map<String, Object> values) throws IllegalArgumentException {
         if (ProctorUtils.isEmptyWhitespace(rule)) {
             return true;
         }

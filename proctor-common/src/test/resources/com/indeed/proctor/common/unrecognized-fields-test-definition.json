@@ -1,7 +1,7 @@
 {
   "customField": "not recognized",
   "version" : 1,
-  "testType" : "USER",
+  "testType" : "ANONYMOUS_USER",
   "salt" : "exampletst",
   "buckets" : [ {
     "name" : "control",

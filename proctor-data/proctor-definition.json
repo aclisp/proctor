@@ -1,0 +1,77 @@
+{
+  "tests": {
+    "bgcolor": {
+      "version": 1,
+      "description": "background color test",
+      "salt": "bgcolor",
+      "buckets": [
+        {
+          "name": "inactive",
+          "value": -1,
+          "description": ""
+        },
+        {
+          "name": "altColor1",
+          "value": 0,
+          "description": "test color 1"
+        },
+        {
+          "name": "altColor2",
+          "value": 1,
+          "description": "test color 2"
+        },
+        {
+          "name": "altColor3",
+          "value": 2,
+          "description": "test color 3"
+        },
+        {
+          "name": "altColor4",
+          "value": 3,
+          "description": "test color 4"
+        }
+      ],
+      "allocations": [
+        {
+          "rule": "${true}",
+          "ranges": [
+            {
+              "length": 0.1,
+              "bucketValue": 0
+            },
+            {
+              "length": 0.2,
+              "bucketValue": -1
+            },
+            {
+              "length": 0.1,
+              "bucketValue": 1
+            },
+            {
+              "length": 0.2,
+              "bucketValue": -1
+            },
+            {
+              "length": 0.1,
+              "bucketValue": 2
+            },
+            {
+              "length": 0.2,
+              "bucketValue": -1
+            },
+            {
+              "length": 0.1,
+              "bucketValue": 3
+            }
+          ]
+        }
+      ],
+      "testType": "ANONYMOUS_USER"
+    }
+  },
+  "audit": {
+    "version": 1,
+    "updatedBy": "jack",
+    "updated": 1379048400000
+  }
+}
