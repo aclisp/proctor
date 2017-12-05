@@ -373,9 +373,9 @@ public class GitProctorCore implements FileBasedPersisterCore {
     @Nullable
     @VisibleForTesting
     static String parseTestName(final String testDefinitionsDirectory, final String filePath) {
-        final String prefix = (Strings.isNullOrEmpty(testDefinitionsDirectory) ? "" : testDefinitionsDirectory + File.separator);
+        final String prefix = (Strings.isNullOrEmpty(testDefinitionsDirectory) ? "" : testDefinitionsDirectory + "/");
         if (filePath != null && filePath.startsWith(prefix)) {
-            final String[] directories = filePath.substring(prefix.length()).split(File.separator);
+            final String[] directories = filePath.substring(prefix.length()).split("/");
             return directories.length > 1 ? directories[0] : null;
         } else {
             return null;

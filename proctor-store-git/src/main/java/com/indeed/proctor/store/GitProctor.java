@@ -390,7 +390,7 @@ public class GitProctor extends FileBasedProctorStore {
         @VisibleForTesting
         public static Pattern compileTestNamePattern(final String definitionDirectory) {
             return Pattern.compile(definitionDirectory +
-                    File.separator + "(\\w+)" + File.separator + FileBasedProctorStore.TEST_DEFINITION_FILENAME);
+                    "/" + "(\\w+)" + "/" + FileBasedProctorStore.TEST_DEFINITION_FILENAME);
         }
     }
 }

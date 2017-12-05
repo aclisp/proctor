@@ -1,7 +1,7 @@
 {
   "tests": {
     "bgcolor": {
-      "version": 1,
+      "version": "1.0.1",
       "description": "background color test",
       "salt": "bgcolor",
       "buckets": [
@@ -70,7 +70,7 @@
     }
   },
   "audit": {
-    "version": 1,
+    "version": "100a",
     "updatedBy": "jack",
     "updated": 1379048400000
   }

@@ -10,6 +10,7 @@ import com.indeed.util.core.ReleaseVersion;
 import javax.el.FunctionMapper;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,8 +30,22 @@ public class LoadAndRunOnce {
         final FileProctorLoader loader = new FileProctorLoader(spec, definitionPath, functionMapper);
         try {
             final Proctor proctor = loader.doLoad();
+            System.out.println("------ Proctor Loaded ------");
+            proctor.appendTestMatrix(new PrintWriter(System.out));
+            System.out.println();
+            System.out.println("------ -------------- ------");
 
-            final String userId = "abcdefg";
+            System.out.println("------ Proctor Spec ------");
+            System.out.println("providedContext = " + spec.getProvidedContext());
+            Map<String, TestSpecification> testSpecificationMap = spec.getTests();
+            for (Map.Entry<String, TestSpecification> entry : testSpecificationMap.entrySet()) {
+                System.out.print("test " + entry.getKey() + " = ");
+                ProctorUtils.serializeTestSpecification(new PrintWriter(System.out), entry.getValue());
+            }
+            System.out.println();
+            System.out.println("------ ------------ ------");
+
+            final String userId = "23";
             final Identifiers identifiers = Identifiers.of(TestType.ANONYMOUS_USER, userId);
 
             final Map<String, Object> inputContext = Maps.newHashMap();
@@ -44,15 +59,16 @@ public class LoadAndRunOnce {
 
             ProctorResult result = proctor.determineTestGroups(identifiers, inputContext, forcedGroups, testNameFilter);
 
+            System.out.println("------ Proctor Result ------");
             Map<String, TestBucket> buckets = result.getBuckets();
             for (final Map.Entry<String, TestBucket> entry : buckets.entrySet()) {
-                System.out.println("testName = " + entry.getKey());
+                System.out.print("testName = " + entry.getKey() + ", ");
                 System.out.println("testBucket = " + entry.getValue());
             }
 
             Map<String, ConsumableTestDefinition> definitionMap = result.getTestDefinitions();
             for (final Map.Entry<String, ConsumableTestDefinition> entry : definitionMap.entrySet()) {
-                System.out.println("testName = " + entry.getKey());
+                System.out.print("testName = " + entry.getKey() + ", ");
                 System.out.println("testDefinition = " + entry.getValue());
             }
 

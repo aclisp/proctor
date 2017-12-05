@@ -44,7 +44,7 @@
         "kluj" : {
             "version" : 11,
             "salt" : "bilterm",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "kluj is a city in Romania; I have no idea how to pronounce it",
             "buckets" : [
                 {
@@ -79,7 +79,7 @@
         "oop_poop" : {
             "version" : 17,
             "salt" : "do not want",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "oops there's poop",
             "buckets" : [
                 {
@@ -148,7 +148,7 @@
         "dubblez" : {
             "version" : 70,
             "salt" : "google bing",
-            "testType" : "EMAIL",
+            "testType" : "EMAIL_ADDRESS",
             "description" : "not so user-centric",
             "buckets" : [
                 {
@@ -178,7 +178,7 @@
         "payloaded" : {
             "version" : 1,
             "salt" : "in the cookies",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "This test has simple payloads on control and test",
             "buckets" : [
                 {
@@ -217,7 +217,7 @@
         "payloaded_verified" : {
             "version" : 2,
             "salt" : "in the cookies",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "This test has payloads with verification in spec",
             "buckets" : [
                 {
@@ -255,7 +255,7 @@
         "map_payload" : {
             "version" : 2,
             "salt" : "salt",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "This test has map payloads",
             "buckets" : [
                 {
@@ -313,7 +313,7 @@
         "payloaded_excluded" : {
             "version" : 1,
             "salt" : "in the cookies",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "This test has simple payloads on control and test",
             "rule": "${false}",
             "buckets" : [

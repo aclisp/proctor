@@ -69,7 +69,7 @@
         "two": {
             "version": 11,
             "salt": "salted",
-            "testType": "USER",
+            "testType": "ANONYMOUS_USER",
             "description": "description and stuff",
             "buckets": [
                 {
@@ -115,7 +115,7 @@
         "three" : {
             "version" : 2,
             "salt" : "salty",
-            "testType" : "USER",
+            "testType" : "ANONYMOUS_USER",
             "description" : "This test has payloads with verification in spec",
             "buckets" : [
                 {

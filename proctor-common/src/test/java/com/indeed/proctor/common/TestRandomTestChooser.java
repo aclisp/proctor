@@ -39,7 +39,7 @@ public class TestRandomTestChooser {
 
     @Test
     public void test5050Percent() {
-        final List<Range> ranges = Lists.newArrayList(new Range(0, 0.5), new Range(1, 1.0));
+        final List<Range> ranges = Lists.newArrayList(new Range(0, 0.5), new Range(1, 0.5));
         final List<TestBucket> buckets = Lists.newArrayList(new TestBucket("control", 0, "zoot", null), new TestBucket("test", 1, "zoot", null));
 
         final RandomTestChooser rtc = initializeRandomTestChooser(ranges, buckets);
