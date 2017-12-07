@@ -121,7 +121,7 @@ public abstract class AbstractProctorLoader extends DataLoadingTimerTask impleme
             final Audit audit = Preconditions.checkNotNull(newAudit, "Missing audit");
             if(lastAudit.getVersion().equals(audit.getVersion())) {
                 if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("Not reloading " + getSource() + " test matrix definition because audit is unchanged: " + lastAudit.getVersion() + " @ " + lastAudit.getUpdated() + " by " + lastAudit.getUpdatedBy());
+                    LOGGER.debug("Not reloading " + getSource() + " test matrix definition because audit is unchanged: " + lastAudit.getVersion() + " @ " + lastAudit.getUpdatedDate() + " by " + lastAudit.getUpdatedBy());
                 }
 
                 return null;

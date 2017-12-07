@@ -13,7 +13,7 @@ import java.util.TimeZone;
  */
 public class Audit {
     public static final String EMPTY_VERSION = "";
-    public static final TimeZone DEFAULT_TIMEZONE = TimeZone.getTimeZone("US/Central");
+    public static final TimeZone DEFAULT_TIMEZONE = TimeZone.getTimeZone("Asia/Shanghai");
 
     private String version;
     private long updated;
@@ -37,7 +37,7 @@ public class Audit {
     public void setUpdated(final long updated) {
         this.updated = updated;
         if (updated > 0) {
-            final DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mmZ");
+            final DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
             formatter.setTimeZone(DEFAULT_TIMEZONE);
             updatedDate = formatter.format(new Date(updated));
         } else {

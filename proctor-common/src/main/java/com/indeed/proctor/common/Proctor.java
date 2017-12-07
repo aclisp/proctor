@@ -220,7 +220,7 @@ public class Proctor {
         return new ProctorResult(audit.getVersion(), testGroups, testDefinitions);
     }
 
-    TestMatrixArtifact getArtifact() {
+    public TestMatrixArtifact getArtifact() {
         return matrix;
     }
 

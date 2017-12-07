@@ -17,6 +17,7 @@ public class Main {
         Locale.setDefault(new Locale("en"));
         System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory");
 
+        /*
         LOGGER.info("setup timer for remoteProctorLoader");
         Timer timer = new Timer();
         try {
@@ -25,10 +26,12 @@ public class Main {
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
+        */
 
-        LOGGER.info("setup vertx");
+        int instances = 1;
+        LOGGER.info("setup vertx with " + instances + " instances");
         Vertx vertx = Vertx.vertx();
-        DeploymentOptions options = new DeploymentOptions().setInstances(1);
+        DeploymentOptions options = new DeploymentOptions().setInstances(instances);
         vertx.deployVerticle(DefaultServer.class.getName(), options);
     }
 }
