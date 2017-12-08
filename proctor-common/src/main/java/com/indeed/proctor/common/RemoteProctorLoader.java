@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.primitives.Longs;
 import com.indeed.proctor.common.admin.model.Test;
 import com.indeed.proctor.common.admin.model.TestGroup;
 import com.indeed.proctor.common.admin.model.TestMatrix;
@@ -19,6 +20,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -107,21 +111,51 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
         List<Range> ranges = testDefinition.getAllocations().get(0).getRanges();
         List<TestBucket> buckets = testDefinition.getBuckets();
         int totalActiveBucket = buckets.size() - 1;
-        buckets.stream().skip(1)  // inactive bucket is always the first one.
+
+        // 核心算法：利用多轮错位分配的方法，来安排流量分布
+        //         第一轮先按offset排好ABC
+        //         第二轮再按offset+1排余下的ABC
+        //         以此类推...
+        // 限制条件：totalActiveBucket在实验开始之后不能改变
+        // 变通方法：可以多创建一些分布为0的分组
+        Map<TestBucket, Long> remainingRatio = Maps.newHashMap();
+        AtomicInteger round = new AtomicInteger(0);
+        for (; round.get() < totalActiveBucket; round.incrementAndGet()) {
+            buckets.stream().skip(1)  // inactive bucket is always the first one.
+                    .forEachOrdered(bucket -> {
+                        long bucketRatio;
+                        if (!remainingRatio.containsKey(bucket)) {
+                            TestGroup testGroup = findTestGroupByVariable(test, bucket.getName());
+                            long absoluteRatio = test.getRatio() * testGroup.getRatio();
+                            long absoluteTotal = 10000 * 10000;
+                            bucketRatio = MAX_ALLOCATION * absoluteRatio / absoluteTotal;
+                            remainingRatio.put(bucket, bucketRatio);
+                        } else {
+                            bucketRatio = remainingRatio.get(bucket);
+                        }
+                        LOGGER.debug("bucket `" + test.getTestId() + "/" + bucket.getName() + "/" + bucket.getValue() +
+                                "` has a ratio of " + bucketRatio + "/" + MAX_ALLOCATION + " at round " + round.get());
+                        int bucketIndex = (bucket.getValue() + round.get()) % totalActiveBucket;
+                        AtomicInteger count = new AtomicInteger(0);
+                        IntStream.range(0, ranges.size())
+                                .filter(i -> (i % totalActiveBucket) == bucketIndex)
+                                .filter(i -> ranges.get(i).getBucketValue() == -1)
+                                .limit(bucketRatio)
+                                .forEach(i -> {
+                                    ranges.get(i).setBucketValue(bucket.getValue());
+                                    count.incrementAndGet();
+                                });
+                        remainingRatio.put(bucket, bucketRatio - count.get());
+                    });
+        }
+
+        // 验证
+        buckets.stream().skip(1)
                 .forEachOrdered(bucket -> {
-                    TestGroup testGroup = findTestGroupByVariable(test, bucket.getName());
-                    long absoluteRatio = test.getRatio() * testGroup.getRatio();
-                    long absoluteTotal = 10000 * 10000;
-                    long bucketRatio = MAX_ALLOCATION * absoluteRatio / absoluteTotal;
+                    long total = ranges.size();
+                    long count = ranges.stream().filter(range -> range.getBucketValue() == bucket.getValue()).count();
                     LOGGER.debug("bucket `" + test.getTestId() + "/" + bucket.getName() + "/" + bucket.getValue() +
-                            "` has a ratio of " + bucketRatio + "/" + MAX_ALLOCATION);
-                    int bucketIndex = bucket.getValue();
-                    IntStream.range(0, ranges.size())
-                            .filter(i -> (i%totalActiveBucket) == bucketIndex)
-                            .limit(bucketRatio)
-                            .forEach(i -> {
-                                ranges.get(i).setBucketValue(bucketIndex);
-                            });
+                            "` has a ratio of " + count + "/" + total + " after allocation");
                 });
     }
 
@@ -135,16 +169,15 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
         TestMatrixArtifact artifact = new TestMatrixArtifact();
 
         Audit audit = new Audit();
-        audit.setVersion(Audit.EMPTY_VERSION);
-        audit.setUpdated(0);
-        audit.setUpdatedBy("nobody");
-        // 以第一个实验的更新日期为准
-        // TODO 以所有实验的id的md5为准
-        testMatrix.getTests().stream().limit(1).forEach(test -> {
-            audit.setVersion(test.getTestId() + "." + String.valueOf(test.getId()));
-            audit.setUpdated(test.getUpdatedAt().getTime());
-            audit.setUpdatedBy(test.getUpdater());
-        });
+        // Version以所有实验的id的md5为准
+        MessageDigest testsDigest = ProctorUtils.createMessageDigest();
+        testMatrix.getTests().stream().sorted(Comparator.comparing(Test::getTestId))
+                .forEachOrdered(test -> {
+                    testsDigest.update(Longs.toByteArray(test.getId()));
+                });
+        audit.setVersion(Base64.getEncoder().encodeToString(testsDigest.digest()));
+        audit.setUpdated(System.currentTimeMillis());
+        audit.setUpdatedBy(RemoteProctorLoader.class.getName());
         artifact.setAudit(audit);
 
         Map<String, ConsumableTestDefinition> testDefinitionMap = Maps.newHashMap();
@@ -175,21 +208,23 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
 
             List<TestBucket> buckets = Lists.newArrayList();
             buckets.add(new TestBucket("inactive", -1, ""));
+            // 按TestGroup的variable排序
             AtomicInteger internalBucketId = new AtomicInteger(0);
-            test.getTestGroups().stream().forEachOrdered(testGroup -> {
-                TestBucket bucket = new TestBucket();
-                bucket.setName(testGroup.getVariable());
-                bucket.setValue(internalBucketId.getAndIncrement());
-                bucket.setDescription("`" + testGroup.getName() + "` " + testGroup.getDescription());
-                buckets.add(bucket);
-            });
+            test.getTestGroups().stream().sorted(Comparator.comparing(TestGroup::getVariable))
+                    .forEachOrdered(testGroup -> {
+                        TestBucket bucket = new TestBucket();
+                        bucket.setName(testGroup.getVariable());
+                        bucket.setValue(internalBucketId.getAndIncrement());
+                        bucket.setDescription("`" + testGroup.getName() + "` " + testGroup.getDescription());
+                        buckets.add(bucket);
+                    });
             testDefinition.setBuckets(buckets);
 
             List<Allocation> allocations = Lists.newArrayList();
             Allocation allocation = new Allocation();
             List<Range> ranges = Lists.newArrayList();
-            for (int i=0; i<MAX_ALLOCATION; i++) {
-                ranges.add(new Range(-1, 1.0/MAX_ALLOCATION));
+            for (int i = 0; i < MAX_ALLOCATION; i++) {
+                ranges.add(new Range(-1, 1.0 / MAX_ALLOCATION));
             }
             allocation.setRanges(ranges);
             allocations.add(allocation);
