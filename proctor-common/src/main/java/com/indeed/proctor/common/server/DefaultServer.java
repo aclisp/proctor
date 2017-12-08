@@ -34,7 +34,7 @@ import java.util.Map;
 public class DefaultServer extends AbstractVerticle {
     private static final Logger LOGGER = Logger.getLogger(DefaultServer.class);
 
-    private static final String FALLBACK_TEST_MATRIX = "proctor-data/test-matrix.json";
+    private static final String FALLBACK_TEST_MATRIX = "/data/yy/vxlog/abtesting/test-matrix.json";
 
     private Proctor proctor;
     private RemoteProctorLoader loader;

@@ -36,7 +36,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     private static final int MAX_ALLOCATION = 10000;
 
     @Nonnull
-    private final URL inputURL = new URL("http://127.0.0.1:3000/proctor/adminModel.json");
+    private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
     @Nonnull
     private final ObjectMapper objectMapper = Serializers.lenient();
     @Nullable
