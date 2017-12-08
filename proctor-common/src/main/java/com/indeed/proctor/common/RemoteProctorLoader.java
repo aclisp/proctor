@@ -1,7 +1,5 @@
 package com.indeed.proctor.common;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -43,6 +41,13 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     private final ObjectMapper objectMapper = Serializers.lenient();
     @Nullable
     private String fileContents = null;
+    @Nullable
+    private TestMatrixArtifact cachedArtifact = null;
+
+    @Nullable
+    public String getFileContents() {
+        return fileContents;
+    }
 
     public static RemoteProctorLoader createInstance() throws MalformedURLException {
         final ProctorSpecification specification = new ProctorSpecification();
@@ -58,14 +63,11 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     @Nullable
     @Override
     protected TestMatrixArtifact loadTestMatrix() throws IOException, MissingTestMatrixException {
-        /**
+        /*
          * 这里根据数据源构造出TestMatrixArtifact，给AbstractProctorLoader做进一步验证。
          */
-        final Reader reader = new BufferedReader(new InputStreamReader(inputURL.openStream()));
-        try {
+        try (final Reader reader = new BufferedReader(new InputStreamReader(inputURL.openStream()))) {
             return loadJsonTestMatrix(reader);
-        } finally {
-            reader.close();
         }
     }
 
@@ -92,14 +94,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                 //  record the file contents AFTER successfully loading the matrix
                 fileContents = newContents;
             }
-            TestMatrixArtifact artifact = createArtifact(testMatrix);
-            return artifact;
-        } catch (@Nonnull final JsonParseException e) {
-            LOGGER.error("Unable to load test matrix from " + getSource(), e);
-            throw e;
-        } catch (@Nonnull final JsonMappingException e) {
-            LOGGER.error("Unable to load test matrix from " + getSource(), e);
-            throw e;
+            return createArtifact(testMatrix);
         } catch (@Nonnull final IOException e) {
             LOGGER.error("Unable to load test matrix from " + getSource(), e);
             throw e;
@@ -133,7 +128,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                         } else {
                             bucketRatio = remainingRatio.get(bucket);
                         }
-                        LOGGER.debug("bucket `" + test.getTestId() + "/" + bucket.getName() + "/" + bucket.getValue() +
+                        LOGGER.info("bucket `" + test.getTestId() + "/" + bucket.getName() + "/" + bucket.getValue() +
                                 "` has a ratio of " + bucketRatio + "/" + MAX_ALLOCATION + " at round " + round.get());
                         int bucketIndex = (bucket.getValue() + round.get()) % totalActiveBucket;
                         AtomicInteger count = new AtomicInteger(0);
@@ -154,28 +149,37 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                 .forEachOrdered(bucket -> {
                     long total = ranges.size();
                     long count = ranges.stream().filter(range -> range.getBucketValue() == bucket.getValue()).count();
-                    LOGGER.debug("bucket `" + test.getTestId() + "/" + bucket.getName() + "/" + bucket.getValue() +
+                    LOGGER.info("bucket `" + test.getTestId() + "/" + bucket.getName() + "/" + bucket.getValue() +
                             "` has a ratio of " + count + "/" + total + " after allocation");
                 });
     }
 
+    @Nonnull
     private TestGroup findTestGroupByVariable(Test test, String variable) {
         return test.getTestGroups().stream().filter(testGroup -> testGroup.getVariable().equals(variable))
                 .findFirst().get();
     }
 
     @Nonnull
-    private TestMatrixArtifact createArtifact(@Nonnull final TestMatrix testMatrix) {
-        TestMatrixArtifact artifact = new TestMatrixArtifact();
-
-        Audit audit = new Audit();
+    private String getTestMatrixVersion(@Nonnull final TestMatrix testMatrix) {
         // Version以所有实验的id的md5为准
         MessageDigest testsDigest = ProctorUtils.createMessageDigest();
         testMatrix.getTests().stream().sorted(Comparator.comparing(Test::getTestId))
-                .forEachOrdered(test -> {
-                    testsDigest.update(Longs.toByteArray(test.getId()));
-                });
-        audit.setVersion(Base64.getEncoder().encodeToString(testsDigest.digest()));
+                .forEachOrdered(test -> testsDigest.update(Longs.toByteArray(test.getId())));
+        return Base64.getEncoder().encodeToString(testsDigest.digest());
+    }
+
+    @Nonnull
+    private TestMatrixArtifact createArtifact(@Nonnull final TestMatrix testMatrix) {
+        String testMatrixVersion = getTestMatrixVersion(testMatrix);
+        if (cachedArtifact != null && cachedArtifact.getAudit().getVersion().equals(testMatrixVersion)) {
+            return cachedArtifact;
+        }
+
+        TestMatrixArtifact artifact = new TestMatrixArtifact();
+
+        Audit audit = new Audit();
+        audit.setVersion(testMatrixVersion);
         audit.setUpdated(System.currentTimeMillis());
         audit.setUpdatedBy(RemoteProctorLoader.class.getName());
         artifact.setAudit(audit);
@@ -236,13 +240,14 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
         });
         artifact.setTests(testDefinitionMap);
 
+        cachedArtifact = artifact;
         return artifact;
     }
 
     @Nonnull
     @Override
     public String getSource() {
-        /**
+        /*
          * 调试用。返回数据源的详细信息。
          */
         return inputURL.toString();

@@ -15,6 +15,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.TimeoutHandler;
@@ -220,7 +221,7 @@ public class DefaultServer extends AbstractVerticle {
             json.put("message", "Success");
             json.put("data", data);
 
-            LOGGER.info("convert userId `" + userId + "` deviceId `" + deviceId + "` to " + json.encodePrettily());
+            LOGGER.debug("convert userId `" + userId + "` deviceId `" + deviceId + "` to " + json.encodePrettily());
 
             response.end(json.encode());
         });
@@ -234,6 +235,11 @@ public class DefaultServer extends AbstractVerticle {
             } catch (IOException e) {
                 response.end(e.toString());
             }
+        });
+
+        router.get("/ShowTestSource").handler(routingContext -> {
+            HttpServerResponse response = routingContext.response();
+            response.end(loader.getFileContents());
         });
     }
 
