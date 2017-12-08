@@ -18,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Comparator;
@@ -66,7 +67,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
         /*
          * 这里根据数据源构造出TestMatrixArtifact，给AbstractProctorLoader做进一步验证。
          */
-        try (final Reader reader = new BufferedReader(new InputStreamReader(inputURL.openStream()))) {
+        try (final Reader reader = new BufferedReader(new InputStreamReader(inputURL.openStream(), StandardCharsets.UTF_8))) {
             return loadJsonTestMatrix(reader);
         }
     }
