@@ -69,7 +69,7 @@ public class TestProctor {
         assertTrue(auditNode.has("updated"));
         assertEquals(1454432430000L, auditNode.get("updated").longValue());
         assertTrue(auditNode.has("updatedDate"));
-        assertEquals("2016-02-02T11:00-0600", auditNode.get("updatedDate").textValue());
+        assertEquals("2016-02-03T01:00:30+0800", auditNode.get("updatedDate").textValue());
         assertTrue(auditNode.has("updatedBy"));
         assertTrue(auditNode.get("updatedBy").isTextual());
         assertEquals("nobody", auditNode.get("updatedBy").textValue());

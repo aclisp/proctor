@@ -31,7 +31,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
+            <!--plugin>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>proctor-maven-plugin</artifactId>
                 <version>${project.version}</version>
@@ -44,7 +44,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin-->
         </plugins>
         <resources>
             <resource>

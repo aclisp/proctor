@@ -74,7 +74,7 @@ public class DefaultServer extends AbstractVerticle {
         Router router = Router.router(vertx);
         setupGeneralRoute(router);
         setupBizRoute(router);
-        server.requestHandler(router::accept).listen(3001);
+        server.requestHandler(router::accept).listen(10200);
 
         // 定时从远程加载实验定义
         vertx.setPeriodic(10000, id -> {
