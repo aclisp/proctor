@@ -73,8 +73,7 @@ public class DefaultServer extends AbstractVerticle {
         });
 
         JsonObject mongoConfig = new JsonObject()
-                .put("db_name", "abtest")
-                .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005");
+                .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005/abtest");
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
 
