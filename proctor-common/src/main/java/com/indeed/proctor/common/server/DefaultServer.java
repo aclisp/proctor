@@ -1,31 +1,27 @@
 package com.indeed.proctor.common.server;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.indeed.proctor.common.*;
 import com.indeed.proctor.common.model.Audit;
 import com.indeed.proctor.common.model.TestBucket;
-import com.indeed.proctor.common.model.TestMatrixArtifact;
 import com.indeed.proctor.common.model.TestType;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServer;
-import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.shareddata.Counter;
+import io.vertx.core.streams.Pump;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.TimeoutHandler;
 import org.apache.log4j.Logger;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.BufferedWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.StringWriter;
-import java.net.MalformedURLException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
@@ -107,22 +103,45 @@ public class DefaultServer extends AbstractVerticle {
                     LOGGER.info("Successfully loaded new test matrix definition: " +
                             audit.getVersion() + " @ " + audit.getUpdated() + " by " + audit.getUpdatedBy());
                 } else {
-                    LOGGER.error("Unable to reload proctor from " + loader.getSource(), res.cause());
+                    LOGGER.error("Unable to reload proctor from " + loader.getSource() + ": " + res.cause().toString());
                 }
             });
         });
 
         // 定时把实验定义转储到文件
+        vertx.sharedData().getCounter("dump-experiments", res -> {
+            if (res.succeeded()) {
+                Counter counter = res.result();
+                counter.getAndIncrement(r -> {
+                    if (r.succeeded()) {
+                        long c = r.result();
+                        if (c == 0) {
+                            setupPeriodic();
+                        }
+                    } else {
+                        LOGGER.error("Something went wrong!", r.cause());
+                    }
+                });
+            } else {
+                LOGGER.error("Something went wrong!", res.cause());
+            }
+        });
+    }
+
+    private void setupPeriodic() {
+        LOGGER.info("setup periodic to dump experiments to disk");
         vertx.setPeriodic(10000, id -> {
             String dir = Paths.get(".").toAbsolutePath().normalize().toString();
             String file = FALLBACK_TEST_MATRIX;
-            StringWriter sw = new StringWriter();
-            try {
-                proctor.appendTestMatrix(sw);
-            } catch (IOException e) {
-                LOGGER.error("Unable to dump test matrix to file `" + dir + "/" + file + "`", e);
-            }
-            vertx.fileSystem().writeFile(file, Buffer.buffer(sw.toString()), res -> {
+            context.executeBlocking(future -> {
+                try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file),
+                        StandardCharsets.UTF_8))) {
+                    proctor.appendTestMatrix(bw);
+                    future.complete();
+                } catch (IOException e) {
+                    future.fail(e);
+                }
+            }, res -> {
                 if (res.failed()) {
                     LOGGER.error("Unable to dump test matrix to file `" + dir + "/" + file + "`", res.cause());
                 }
@@ -133,17 +152,19 @@ public class DefaultServer extends AbstractVerticle {
     private void fallback() {
         String dir = Paths.get(".").toAbsolutePath().normalize().toString();
         String file = FALLBACK_TEST_MATRIX;
-        vertx.fileSystem().readFile(file, res -> {
+        context.executeBlocking(future -> {
+            final ProctorSpecification specification = new ProctorSpecification();
+            specification.setTests(null);
+            FileProctorLoader loader = new FileProctorLoader(specification, file);
+            try {
+                proctor = loader.doLoad();
+                future.complete();
+            } catch (Exception e) {
+                future.fail(e);
+            }
+        }, res -> {
             if (res.succeeded()) {
-                final ProctorSpecification specification = new ProctorSpecification();
-                specification.setTests(null);
-                StringProctorLoader loader = new StringProctorLoader(specification, dir + "/" + file, res.result().toString());
-                try {
-                    proctor = loader.doLoad();
-                    LOGGER.warn("FALLBACK! load test matrix from file `" + dir + "/" + file + "`");
-                } catch (Exception e) {
-                    LOGGER.error("Unable to load test matrix from file `" + dir + "/" + file + "`", e);
-                }
+                LOGGER.warn("FALLBACK! load test matrix from file `" + dir + "/" + file + "`");
             } else {
                 LOGGER.error("Unable to load test matrix from file `" + dir + "/" + file + "`", res.cause());
             }
@@ -181,7 +202,7 @@ public class DefaultServer extends AbstractVerticle {
         // Add default headers
         router.route().handler(ctx -> {
             ctx.addHeadersEndHandler(v -> {
-                ctx.response().putHeader("content-type", "application/json");
+                ctx.response().putHeader("content-type", "application/json; charset=utf-8");
             });
             ctx.next();
         });
@@ -226,21 +247,17 @@ public class DefaultServer extends AbstractVerticle {
             response.end(json.encode());
         });
 
-        router.get("/ShowTestMatrix").handler(routingContext -> {
+        router.get("/source").handler(routingContext -> {
             HttpServerResponse response = routingContext.response();
-            try {
-                StringWriter sw = new StringWriter();
-                proctor.appendTestMatrix(sw);
-                response.end(sw.toString());
-            } catch (IOException e) {
-                response.end(e.toString());
-            }
-        });
-
-        router.get("/ShowTestSource").handler(routingContext -> {
-            HttpServerResponse response = routingContext.response();
-            response.end(loader.getFileContents());
+            response.setChunked(true);
+            HttpClient client = vertx.createHttpClient();
+            String source = loader.getInputURL().toString();
+            client.getAbs(source, reader -> {
+                Pump.pump(reader, response, 8192).start();
+                reader.endHandler(v -> response.end());
+            }).exceptionHandler(t -> {
+                response.end(source + ": " + t.toString());
+            }).end();
         });
     }
-
 }

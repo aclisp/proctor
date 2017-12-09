@@ -5,15 +5,16 @@ import com.indeed.proctor.common.model.TestMatrixArtifact;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.el.FunctionMapper;
-import java.io.IOException;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Support class for loading a test matrix artifact from a URL-based JSON file
+ *
  * @author jack
  */
 public class UrlProctorLoader extends AbstractJsonProctorLoader {
@@ -47,11 +48,9 @@ public class UrlProctorLoader extends AbstractJsonProctorLoader {
     @Nullable
     @Override
     protected TestMatrixArtifact loadTestMatrix() throws IOException, MissingTestMatrixException {
-        final Reader reader = new BufferedReader(new InputStreamReader(inputURL.openStream()));
-        try {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputURL.openStream(),
+                StandardCharsets.UTF_8))) {
             return loadJsonTestMatrix(reader);
-        } finally {
-            reader.close();
         }
     }
 }

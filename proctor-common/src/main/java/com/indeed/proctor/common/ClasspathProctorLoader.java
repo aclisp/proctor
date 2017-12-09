@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Support class for loading a test matrix artifact from a JSON file
+ *
  * @author ketan
  */
 public class ClasspathProctorLoader extends AbstractJsonProctorLoader {
@@ -34,7 +36,9 @@ public class ClasspathProctorLoader extends AbstractJsonProctorLoader {
         if (resourceAsStream == null) {
             throw new MissingTestMatrixException("Could not load proctor test matrix from classpath: " + resourcePath);
         }
-        final Reader reader = new InputStreamReader(resourceAsStream);
-        return loadJsonTestMatrix(reader);
+        try (Reader reader = new InputStreamReader(resourceAsStream,
+                StandardCharsets.UTF_8)) {
+            return loadJsonTestMatrix(reader);
+        }
     }
 }

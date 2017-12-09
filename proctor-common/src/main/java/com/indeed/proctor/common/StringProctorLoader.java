@@ -10,6 +10,7 @@ import java.io.StringReader;
 
 /**
  * Support class for loading a test matrix artifact from a JSON file
+ *
  * @author ketan
  */
 public class StringProctorLoader extends AbstractJsonProctorLoader {
@@ -49,7 +50,8 @@ public class StringProctorLoader extends AbstractJsonProctorLoader {
 
     @Override
     protected TestMatrixArtifact loadTestMatrix() throws IOException {
-        final Reader reader = new StringReader(testMatrixJson);
-        return loadJsonTestMatrix(reader);
+        try (final Reader reader = new StringReader(testMatrixJson)) {
+            return loadJsonTestMatrix(reader);
+        }
     }
 }

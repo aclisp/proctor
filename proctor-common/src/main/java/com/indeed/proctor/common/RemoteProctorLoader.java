@@ -37,18 +37,16 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     private static final int MAX_ALLOCATION = 10000;
 
     @Nonnull
+    public URL getInputURL() {
+        return inputURL;
+    }
+
+    @Nonnull
     private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
     @Nonnull
     private final ObjectMapper objectMapper = Serializers.lenient();
     @Nullable
-    private String fileContents = null;
-    @Nullable
     private TestMatrixArtifact cachedArtifact = null;
-
-    @Nullable
-    public String getFileContents() {
-        return fileContents;
-    }
 
     public static RemoteProctorLoader createInstance() throws MalformedURLException {
         final ProctorSpecification specification = new ProctorSpecification();
@@ -74,27 +72,8 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
 
     @Nullable
     protected TestMatrixArtifact loadJsonTestMatrix(@Nonnull final Reader reader) throws IOException {
-        final char[] buffer = new char[1024];
-        final StringBuilder sb = new StringBuilder();
-        while (true) {
-            final int read = reader.read(buffer);
-            if (read == -1) {
-                break;
-            }
-            if (read > 0) {
-                sb.append(buffer, 0, read);
-            }
-        }
-        reader.close();
-        final String newContents = sb.toString();
-        //LOGGER.debug("Load newContents: " + newContents);
-
         try {
-            final TestMatrix testMatrix = objectMapper.readValue(newContents, TestMatrix.class);
-            if (testMatrix != null) {
-                //  record the file contents AFTER successfully loading the matrix
-                fileContents = newContents;
-            }
+            final TestMatrix testMatrix = objectMapper.readValue(reader, TestMatrix.class);
             return createArtifact(testMatrix);
         } catch (@Nonnull final IOException e) {
             LOGGER.error("Unable to load test matrix from " + getSource(), e);

@@ -5,13 +5,12 @@ import com.indeed.proctor.common.model.TestMatrixArtifact;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.el.FunctionMapper;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Support class for loading a test matrix artifact from a JSON file
+ *
  * @author ketan
  */
 public class FileProctorLoader extends AbstractJsonProctorLoader {
@@ -27,6 +26,10 @@ public class FileProctorLoader extends AbstractJsonProctorLoader {
         this.inputFile = inputFile;
     }
 
+    public FileProctorLoader(@Nonnull final ProctorSpecification specification, @Nonnull final String inputFile) {
+        this(specification, new File(inputFile), RuleEvaluator.FUNCTION_MAPPER);
+    }
+
     @Nonnull
     @Override
     protected String getSource() {
@@ -36,13 +39,16 @@ public class FileProctorLoader extends AbstractJsonProctorLoader {
     @Nullable
     @Override
     protected TestMatrixArtifact loadTestMatrix() throws IOException, MissingTestMatrixException {
-        if (! inputFile.exists()) {
+        if (!inputFile.exists()) {
             throw new MissingTestMatrixException("File " + inputFile + " does not exist");
         }
-        if (! inputFile.canRead()) {
+        if (!inputFile.canRead()) {
             throw new MissingTestMatrixException("Cannot read input file " + inputFile);
         }
-        final Reader reader = new FileReader(inputFile);
-        return loadJsonTestMatrix(reader);
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(inputFile),
+                StandardCharsets.UTF_8))) {
+            return loadJsonTestMatrix(reader);
+        }
     }
 }
