@@ -10,6 +10,7 @@ import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.shareddata.Counter;
 import io.vertx.core.streams.Pump;
+import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
@@ -23,8 +24,11 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
 
 public class DefaultServer extends AbstractVerticle {
@@ -38,6 +42,8 @@ public class DefaultServer extends AbstractVerticle {
     private String lastLoadErrorMessage = "load never attempted";
     @Nullable
     private AbstractProctorDiffReporter diffReporter = new AbstractProctorDiffReporter();
+    private MongoClient mongoClient;
+    private DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
     // Called when verticle is deployed
     @Override
@@ -65,6 +71,12 @@ public class DefaultServer extends AbstractVerticle {
                 fallback();
             }
         });
+
+        JsonObject mongoConfig = new JsonObject()
+                .put("db_name", "abtest")
+                .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005");
+        mongoClient = MongoClient.createShared(vertx, mongoConfig);
+        formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
 
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
@@ -242,9 +254,19 @@ public class DefaultServer extends AbstractVerticle {
             json.put("message", "Success");
             json.put("data", data);
 
-            LOGGER.debug("convert userId `" + userId + "` deviceId `" + deviceId + "` to " + json.encodePrettily());
-
             response.end(json.encode());
+
+            json.put("request", new JsonObject()
+                    .put("userId", userId)
+                    .put("deviceId", deviceId)
+            );
+            json.put("timestamp", formatter.format(new Date()));
+            String collection = "converts";
+            mongoClient.save(collection, json, res -> {
+                if (res.failed()) {
+                    LOGGER.error("Unable save to collection " + collection + ": " + res.cause().toString());
+                }
+            });
         });
 
         router.get("/source").handler(routingContext -> {
