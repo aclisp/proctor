@@ -268,7 +268,7 @@ public class DefaultServer extends AbstractVerticle {
             });
         });
 
-        router.get("/source").handler(routingContext -> {
+        router.get("/_source").handler(routingContext -> {
             HttpServerResponse response = routingContext.response();
             response.setChunked(true);
             HttpClient client = vertx.createHttpClient();

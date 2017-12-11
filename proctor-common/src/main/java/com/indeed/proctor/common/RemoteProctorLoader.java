@@ -189,6 +189,16 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                 default:
                     testDefinition.setTestType(TestType.RANDOM);
             }
+            switch (test.getState()) {
+                case "running":
+                    testDefinition.setRule("${true}");
+                    break;
+                case "paused":
+                    testDefinition.setRule("${false}");
+                    break;
+                default:
+                    testDefinition.setRule("${false}");
+            }
 
             List<TestBucket> buckets = Lists.newArrayList();
             buckets.add(new TestBucket("inactive", -1, ""));
