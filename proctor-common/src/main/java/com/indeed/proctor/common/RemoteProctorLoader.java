@@ -1,10 +1,10 @@
 package com.indeed.proctor.common;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.primitives.Longs;
 import com.indeed.proctor.common.admin.model.Test;
 import com.indeed.proctor.common.admin.model.TestGroup;
 import com.indeed.proctor.common.admin.model.TestMatrix;
@@ -21,10 +21,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -43,7 +40,8 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     }
 
     @Nonnull
-    private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
+    //private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
+    private final URL inputURL = new URL("https://abtest.yy.com/api/testList");
     @Nonnull
     private final ObjectMapper objectMapper = Serializers.lenient();
     @Nullable
@@ -74,7 +72,9 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     @Nullable
     protected TestMatrixArtifact loadJsonTestMatrix(@Nonnull final Reader reader) throws IOException {
         try {
-            final TestMatrix testMatrix = objectMapper.readValue(reader, TestMatrix.class);
+            List<Test> tests = Arrays.asList(objectMapper.readValue(reader, Test[].class));
+            final TestMatrix testMatrix = new TestMatrix();
+            testMatrix.setTests(tests);
             return createArtifact(testMatrix);
         } catch (@Nonnull final IOException e) {
             LOGGER.error("Unable to load test matrix from " + getSource(), e);
@@ -143,10 +143,16 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
 
     @Nonnull
     private String getTestMatrixVersion(@Nonnull final TestMatrix testMatrix) {
-        // Version以所有实验的id的md5为准
+        // Version以所有实验的内容的md5为准
         MessageDigest testsDigest = ProctorUtils.createMessageDigest();
         testMatrix.getTests().stream().sorted(Comparator.comparing(Test::getTestId))
-                .forEachOrdered(test -> testsDigest.update(Longs.toByteArray(test.getId())));
+                .forEachOrdered(test -> {
+                    try {
+                        testsDigest.update(objectMapper.writeValueAsBytes(test));
+                    } catch (JsonProcessingException e) {
+                        LOGGER.error("exception got during digest test `" + test.getTestId() + "`", e);
+                    }
+                });
         return Base64.getEncoder().encodeToString(testsDigest.digest());
     }
 
