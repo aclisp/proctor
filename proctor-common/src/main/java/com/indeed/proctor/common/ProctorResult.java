@@ -20,11 +20,11 @@ import javax.annotation.Nonnull;
 public class ProctorResult {
     public static final ProctorResult EMPTY = new ProctorResult(Audit.EMPTY_VERSION, Collections.<String, TestBucket>emptyMap(), Collections.<String, ConsumableTestDefinition>emptyMap());
 
-    private final String matrixVersion;
+    private String matrixVersion = Audit.EMPTY_VERSION;
     @Nonnull
-    private final Map<String, TestBucket> buckets;
+    private Map<String, TestBucket> buckets = Collections.<String, TestBucket>emptyMap();
     @Nonnull
-    private final Map<String, ConsumableTestDefinition> testDefinitions;
+    private Map<String, ConsumableTestDefinition> testDefinitions = Collections.<String, ConsumableTestDefinition>emptyMap();
 
     @Deprecated
     public ProctorResult(
@@ -46,9 +46,15 @@ public class ProctorResult {
         this.testDefinitions = testDefinitions;
     }
 
+    public ProctorResult() {}
+
     @SuppressWarnings("UnusedDeclaration")
     public String getMatrixVersion() {
         return matrixVersion;
+    }
+
+    public void setMatrixVersion(String matrixVersion) {
+        this.matrixVersion = matrixVersion;
     }
 
     @Nonnull
@@ -56,9 +62,17 @@ public class ProctorResult {
         return buckets;
     }
 
+    public void setBuckets(Map<String, TestBucket> buckets) {
+        this.buckets = buckets;
+    }
+
     @Nonnull
     public Map<String, ConsumableTestDefinition> getTestDefinitions() {
         return testDefinitions;
+    }
+
+    public void setTestDefinitions(Map<String, ConsumableTestDefinition> testDefinitions) {
+        this.testDefinitions = testDefinitions;
     }
 
     @Nonnull

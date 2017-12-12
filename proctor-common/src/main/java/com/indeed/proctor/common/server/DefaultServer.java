@@ -1,7 +1,9 @@
 package com.indeed.proctor.common.server;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import com.indeed.proctor.common.*;
+import com.indeed.proctor.common.admin.model.Test;
 import com.indeed.proctor.common.model.Audit;
 import com.indeed.proctor.common.model.TestBucket;
 import com.indeed.proctor.common.model.TestType;
@@ -44,6 +46,7 @@ public class DefaultServer extends AbstractVerticle {
     private AbstractProctorDiffReporter diffReporter = new AbstractProctorDiffReporter();
     private MongoClient mongoClient;
     private DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+    private Registry registry;
 
     // Called when verticle is deployed
     @Override
@@ -73,9 +76,11 @@ public class DefaultServer extends AbstractVerticle {
         });
 
         JsonObject mongoConfig = new JsonObject()
-                .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005/abtest");
+                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005/abtest");
+                .put("connection_string", "mongodb://172.27.142.6:27017/abtest");
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
+        registry = new MongoRegistry(vertx, context, mongoClient);
 
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
@@ -128,6 +133,7 @@ public class DefaultServer extends AbstractVerticle {
                         long c = r.result();
                         if (c == 0) {
                             setupPeriodic();
+                            registry.setupPeriodic();
                         }
                     } else {
                         LOGGER.error("Something went wrong!", r.cause());
@@ -223,48 +229,34 @@ public class DefaultServer extends AbstractVerticle {
         router.get("/convert").handler(routingContext -> {
             HttpServerRequest request = routingContext.request();
             HttpServerResponse response = routingContext.response();
-            String userId = request.getParam("userId");
-            if (userId == null) {
-                userId = "0";
-            }
-            String deviceId = request.getParam("deviceId");
-            if (deviceId == null) {
-                deviceId = "0";
-            }
 
-            Identifiers identifiers = Identifiers.of(
-                    TestType.USER_ID, userId,
-                    TestType.DEVICE_ID, deviceId);
-            Map<String, Object> inputContext = Maps.newHashMap();
-            Map<String, Integer> forcedGroups = Collections.<String, Integer>emptyMap();
-            Collection<String> testNameFilter = Collections.<String>emptyList();
-            ProctorResult result = proctor.determineTestGroups(identifiers, inputContext, forcedGroups, testNameFilter);
-            Map<String, TestBucket> buckets = result.getBuckets();
-            Map<String, String> data = Maps.newHashMap();
-            for (Map.Entry<String, TestBucket> entry : buckets.entrySet()) {
-                String testId = entry.getKey();
-                String variationKey = entry.getValue().getName();
-                if (variationKey.equals("inactive"))
-                    continue;
-                data.put(testId, variationKey);
-            }
-            JsonObject json = new JsonObject();
-            json.put("code", 0);  // 成功
-            json.put("message", "Success");
-            json.put("data", data);
+            // 处理参数
+            String userId = Strings.nullToEmpty(request.getParam("userId"));
+            String deviceId = Strings.nullToEmpty(request.getParam("deviceId"));
 
-            response.end(json.encode());
+            // 取上次状态
+            registry.get(userId, deviceId, lastResult -> {
 
-            json.put("request", new JsonObject()
-                    .put("userId", userId)
-                    .put("deviceId", deviceId)
-            );
-            json.put("timestamp", formatter.format(new Date()));
-            String collection = "converts";
-            mongoClient.save(collection, json, res -> {
-                if (res.failed()) {
-                    LOGGER.error("Unable save to collection " + collection + ": " + res.cause().toString());
-                }
+                // 哈希分配
+                ProctorResult proctorResult = determineTestBucketMap(userId, deviceId);
+
+                // 合并结果
+                combine(proctorResult, lastResult);
+
+                // 转换结果
+                JsonObject jsonResponse = toJson(proctorResult);
+
+                response.endHandler(v -> {
+
+                    // 记录状态
+                    registry.update(userId, deviceId, proctorResult);
+
+                    // 保存日志
+                    saveLog(userId, deviceId, jsonResponse);
+                });
+
+                // 发送应答
+                response.end(jsonResponse.encode());
             });
         });
 
@@ -280,5 +272,68 @@ public class DefaultServer extends AbstractVerticle {
                 response.end(source + ": " + t.toString());
             }).end();
         });
+    }
+
+    /**
+     * 把 lastResult 合并到 proctorResult
+     * @param proctorResult 当前实验结果，合并之后，会被改变
+     * @param lastResult 上次实验结果，只读
+     */
+    private void combine(ProctorResult proctorResult, ProctorResult lastResult) {
+        if (lastResult == null)
+            return;
+
+        lastResult.getBuckets().keySet().stream()
+                // 挑出上次结果里，已暂停的实验
+                .filter(testId -> proctor.getTestDefinition(testId).getState().equals(Test.STATE_PAUSED))
+                // 给当前实验结果（必须不包含暂停实验），增加已暂停的实验
+                .forEach(testId -> {
+                    TestBucket nonExist = proctorResult.getBuckets().put(testId, lastResult.getBuckets().get(testId));
+                    if (nonExist != null) {
+                        LOGGER.error("A paused experiment `" + testId + "` is present");
+                    }
+                });
+    }
+
+    private void saveLog(String userId, String deviceId, JsonObject json) {
+        json.put("request", new JsonObject()
+                .put("userId", userId)
+                .put("deviceId", deviceId)
+        );
+        json.put("timestamp", formatter.format(new Date()));
+        String collection = "converts";
+        mongoClient.save(collection, json, res -> {
+            if (res.failed()) {
+                LOGGER.error("Unable save to collection " + collection + ": " + res.cause().toString());
+            }
+        });
+    }
+
+    private JsonObject toJson(ProctorResult proctorResult) {
+        Map<String, String> data = Maps.newHashMap();
+        Map<String, TestBucket> buckets = proctorResult.getBuckets();
+        for (Map.Entry<String, TestBucket> entry : buckets.entrySet()) {
+            String testId = entry.getKey();
+            String variationKey = entry.getValue().getName();
+            if (variationKey.equals("inactive"))
+                continue;
+            data.put(testId, variationKey);
+        }
+        JsonObject json = new JsonObject();
+        json.put("code", 0);  // 成功
+        json.put("message", "Success");
+        json.put("data", data);
+        return json;
+    }
+
+    private ProctorResult determineTestBucketMap(String userId, String deviceId) {
+        Identifiers identifiers = Identifiers.of(
+                TestType.USER_ID, userId,
+                TestType.DEVICE_ID, deviceId);
+        Map<String, Object> inputContext = Maps.newHashMap();
+        Map<String, Integer> forcedGroups = Collections.<String, Integer>emptyMap();
+        Collection<String> testNameFilter = Collections.<String>emptyList();
+        ProctorResult result = proctor.determineTestGroups(identifiers, inputContext, forcedGroups, testNameFilter);
+        return result;
     }
 }

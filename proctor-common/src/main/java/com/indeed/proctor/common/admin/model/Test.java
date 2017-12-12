@@ -14,10 +14,18 @@ public class Test {
     private String description; //实验描述
 
     private String state; //实验状态 preparing, running, paused, ended 准备 运行中 暂停 终止
+    public final static String STATE_PREPARING = "preparing";
+    public final static String STATE_RUNNING = "running";
+    public final static String STATE_PAUSED = "paused";
+    public final static String STATE_ENDED = "ended";
 
     private String type;  //类型 deviceId uid
+    public final static String TYPE_DEVICEID = "deviceId";
+    public final static String TYPE_UID = "uid";
 
     private String platform; //平台 ios android
+    public final static String PLATFORM_IOS = "ios";
+    public final static String PLATFORM_ANDROID = "android";
 
     private List<String> targets; //目标用户new all
 

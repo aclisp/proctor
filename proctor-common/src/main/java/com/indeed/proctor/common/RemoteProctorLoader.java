@@ -1,6 +1,7 @@
 package com.indeed.proctor.common;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Longs;
@@ -167,9 +168,9 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
         Map<String, ConsumableTestDefinition> testDefinitionMap = Maps.newHashMap();
         testMatrix.getTests().stream().filter(test -> {
             switch (test.getState()) {
-                case "running":
+                case Test.STATE_RUNNING:
                     return true;
-                case "paused":
+                case Test.STATE_PAUSED:
                     return true;
                 default:
                     return false;
@@ -180,25 +181,26 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
             testDefinition.setVersion(test.getTestId() + "." + String.valueOf(test.getId()));
             testDefinition.setDescription("`" + test.getName() + "` " + test.getDescription());
             switch (test.getType()) {
-                case "deviceId":
+                case Test.TYPE_DEVICEID:
                     testDefinition.setTestType(TestType.DEVICE_ID);
                     break;
-                case "uid":
+                case Test.TYPE_UID:
                     testDefinition.setTestType(TestType.USER_ID);
                     break;
                 default:
                     testDefinition.setTestType(TestType.RANDOM);
             }
             switch (test.getState()) {
-                case "running":
+                case Test.STATE_RUNNING:
                     testDefinition.setRule("${true}");
                     break;
-                case "paused":
-                    testDefinition.setRule("${false}");
+                case Test.STATE_PAUSED:
+                    testDefinition.setRule("${false}");  // 暂停实验必须不能参与计算，这样新用户看不到它
                     break;
                 default:
                     testDefinition.setRule("${false}");
             }
+            testDefinition.setState(Strings.nullToEmpty(test.getState()));
 
             List<TestBucket> buckets = Lists.newArrayList();
             buckets.add(new TestBucket("inactive", -1, ""));

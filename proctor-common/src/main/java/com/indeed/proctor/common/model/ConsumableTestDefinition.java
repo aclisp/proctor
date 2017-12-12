@@ -27,6 +27,8 @@ public class ConsumableTestDefinition {
     private TestType testType;
     @Nullable
     private String description;
+    @Nonnull
+    private String state;
 
     public ConsumableTestDefinition() { /* intentionally empty */ }
 
@@ -119,5 +121,14 @@ public class ConsumableTestDefinition {
 
     public void setDescription(@Nullable final String description) {
         this.description = description;
+    }
+
+    @Nonnull
+    public String getState() {
+        return state;
+    }
+
+    public void setState(@Nonnull final String state) {
+        this.state = state;
     }
 }
