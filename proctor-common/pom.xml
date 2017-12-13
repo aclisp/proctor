@@ -118,6 +118,12 @@
             <version>${vertx.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>cn.huanju.udb.operation</groupId>
+            <artifactId>hawk.metrics.client</artifactId>
+            <version>2.6.9</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -173,6 +179,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <repositories>
+        <repository>
+            <id>nexus-releases</id>
+            <url>http://maven.app.duowan.com:8081/nexus/content/repositories/releases</url>
+        </repository>
+    </repositories>
 
 </project>
 

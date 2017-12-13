@@ -1,13 +1,16 @@
 package com.indeed.proctor.common.server;
 
+import com.duowan.sysop.hawk.metrics.client2.type.DefMetricsValue;
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import com.indeed.proctor.common.*;
 import com.indeed.proctor.common.admin.model.Test;
 import com.indeed.proctor.common.model.Audit;
+import com.indeed.proctor.common.model.ConsumableTestDefinition;
 import com.indeed.proctor.common.model.TestBucket;
 import com.indeed.proctor.common.model.TestType;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Handler;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.shareddata.Counter;
@@ -45,6 +48,7 @@ public class DefaultServer extends AbstractVerticle {
     @Nullable
     private AbstractProctorDiffReporter diffReporter = new AbstractProctorDiffReporter();
     private MongoClient mongoClient;
+    private HttpClient httpClient;
     private DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     private Registry registry;
 
@@ -53,7 +57,55 @@ public class DefaultServer extends AbstractVerticle {
     public void start() {
         LOGGER.info("start - Verticle `" + DefaultServer.class.getSimpleName() + "` is deployed");
 
-        // 启动时从远程加载实验定义
+        Handler<Void> then = v -> {
+            // 启动时从远程加载实验定义
+            startupLoad();
+
+            // 初始化成员
+            initMember();
+
+            // 设置API服务
+            setupHttpServer();
+
+            // 定时从远程加载实验定义
+            periodicLoad();
+
+            // 其它设置工作
+            setupOnce();
+        };
+
+        // 全局初始化，仅一次
+        vertx.sharedData().getCounter("global-once", res -> {
+            if (res.succeeded()) {
+                Counter counter = res.result();
+                counter.getAndIncrement(r -> {
+                    if (r.succeeded()) {
+                        long c = r.result();
+                        if (c == 0) {
+                            setupGlobalOnce(then);
+                        } else {
+                            then.handle(null);
+                        }
+                    } else {
+                        LOGGER.error("Something went wrong!", r.cause());
+                    }
+                });
+            } else {
+                LOGGER.error("Something went wrong!", res.cause());
+            }
+        });
+    }
+
+    private void setupGlobalOnce(Handler<Void> then) {
+        context.executeBlocking(future -> {
+            MetricsClient.setup();
+            future.complete();
+        }, res -> {
+            then.handle(null);
+        });
+    }
+
+    private void startupLoad() {
         context.executeBlocking(future -> {
             // Call some blocking API that takes a significant amount of time to return
             try {
@@ -74,21 +126,27 @@ public class DefaultServer extends AbstractVerticle {
                 fallback();
             }
         });
+    }
 
+    private void initMember() {
         JsonObject mongoConfig = new JsonObject()
-                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005/abtest");
+                //TODO .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest");
                 .put("connection_string", "mongodb://172.27.142.6:27017/abtest");
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
         registry = new MongoRegistry(vertx, context, mongoClient);
+        httpClient = vertx.createHttpClient();
+    }
 
+    private void setupHttpServer() {
         HttpServer server = vertx.createHttpServer();
         Router router = Router.router(vertx);
         setupGeneralRoute(router);
         setupBizRoute(router);
         server.requestHandler(router::accept).listen(10200);
+    }
 
-        // 定时从远程加载实验定义
+    private void periodicLoad() {
         vertx.setPeriodic(10000, id -> {
             context.executeBlocking(future -> {
                 final Proctor newProctor;
@@ -123,8 +181,9 @@ public class DefaultServer extends AbstractVerticle {
                 }
             });
         });
+    }
 
-        // 定时把实验定义转储到文件
+    private void setupOnce() {
         vertx.sharedData().getCounter("dump-experiments", res -> {
             if (res.succeeded()) {
                 Counter counter = res.result();
@@ -132,6 +191,7 @@ public class DefaultServer extends AbstractVerticle {
                     if (r.succeeded()) {
                         long c = r.result();
                         if (c == 0) {
+                            // 只做一次的setup放这里
                             setupPeriodic();
                             registry.setupPeriodic();
                         }
@@ -145,6 +205,9 @@ public class DefaultServer extends AbstractVerticle {
         });
     }
 
+    /**
+     * 定时把实验定义转储到文件
+     */
     private void setupPeriodic() {
         LOGGER.info("setup periodic to dump experiments to disk");
         vertx.setPeriodic(10000, id -> {
@@ -189,12 +252,15 @@ public class DefaultServer extends AbstractVerticle {
     }
 
     private void setupGeneralRoute(Router router) {
+        DefMetricsValue metric = MetricsClient.getDefMetricsValue("general");
+
         // ResponseTimeHandler
         router.route().handler(ctx -> {
             long start = System.currentTimeMillis();
             ctx.addHeadersEndHandler(v -> {
                 long duration = System.currentTimeMillis() - start;
                 ctx.response().putHeader("x-response-time", duration + "ms");
+                metric.markDurationAndCode(duration, ctx.response().getStatusCode());
             });
             ctx.next();
         });
@@ -214,6 +280,7 @@ public class DefaultServer extends AbstractVerticle {
             // Status code will be 500 for the RuntimeException or ??? for the other failure
             HttpServerResponse response = failureRoutingContext.response();
             response.setStatusCode(500).end();
+            metric.markCode(500);
         });
 
         // Add default headers
@@ -227,6 +294,7 @@ public class DefaultServer extends AbstractVerticle {
 
     private void setupBizRoute(Router router) {
         router.get("/convert").handler(routingContext -> {
+            DefMetricsValue metric = MetricsClient.getDefMetricsValue(routingContext);
             HttpServerRequest request = routingContext.request();
             HttpServerResponse response = routingContext.response();
 
@@ -257,15 +325,17 @@ public class DefaultServer extends AbstractVerticle {
 
                 // 发送应答
                 response.end(jsonResponse.encode());
+
+                // 记录总成功数
+                metric.markCode(200);
             });
         });
 
         router.get("/_source").handler(routingContext -> {
             HttpServerResponse response = routingContext.response();
             response.setChunked(true);
-            HttpClient client = vertx.createHttpClient();
             String source = loader.getInputURL().toString();
-            client.getAbs(source, reader -> {
+            httpClient.getAbs(source, reader -> {
                 Pump.pump(reader, response, 8192).start();
                 reader.endHandler(v -> response.end());
             }).exceptionHandler(t -> {
@@ -285,7 +355,14 @@ public class DefaultServer extends AbstractVerticle {
 
         lastResult.getBuckets().keySet().stream()
                 // 挑出上次结果里，已暂停的实验
-                .filter(testId -> proctor.getTestDefinition(testId).getState().equals(Test.STATE_PAUSED))
+                .filter(testId -> {
+                    ConsumableTestDefinition testDefinition = proctor.getTestDefinition(testId);
+                    if (testDefinition != null) {
+                        return testDefinition.getState().equals(Test.STATE_PAUSED);
+                    } else {
+                        return false;
+                    }
+                })
                 // 给当前实验结果（必须不包含暂停实验），增加已暂停的实验
                 .forEach(testId -> {
                     TestBucket nonExist = proctorResult.getBuckets().put(testId, lastResult.getBuckets().get(testId));
@@ -309,6 +386,9 @@ public class DefaultServer extends AbstractVerticle {
         });
     }
 
+    /**
+     * 利用metrics需要记录每个实验每个分组的请求数
+     */
     private JsonObject toJson(ProctorResult proctorResult) {
         Map<String, String> data = Maps.newHashMap();
         Map<String, TestBucket> buckets = proctorResult.getBuckets();
@@ -318,6 +398,9 @@ public class DefaultServer extends AbstractVerticle {
             if (variationKey.equals("inactive"))
                 continue;
             data.put(testId, variationKey);
+
+            String key = testId + "/" + variationKey;
+            MetricsClient.getDefMetricsValue(key).markCode(0);
         }
         JsonObject json = new JsonObject();
         json.put("code", 0);  // 成功

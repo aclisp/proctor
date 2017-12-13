@@ -28,7 +28,8 @@ public class Main {
         }
         */
 
-        int instances = 1;
+        //TODO int instances = Runtime.getRuntime().availableProcessors();
+        int instances = 2;
         LOGGER.info("setup vertx with " + instances + " instances");
         Vertx vertx = Vertx.vertx();
         DeploymentOptions options = new DeploymentOptions().setInstances(instances);

@@ -11,6 +11,7 @@ import io.vertx.ext.mongo.MongoClient;
 import org.apache.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import java.util.Date;
 import java.util.Map;
 
 
@@ -37,7 +38,8 @@ public class MongoRegistry extends Registry {
         });
         JsonObject document = new JsonObject()
                 .put("_id", deviceId)
-                .put("data", data);
+                .put("data", data)
+                .put("timestamp", System.currentTimeMillis());
         mongoClient.save(collection, document, res -> {
             if (res.failed()) {
                 LOGGER.error("Unable save to collection " + collection + ": " + res.cause().toString());
