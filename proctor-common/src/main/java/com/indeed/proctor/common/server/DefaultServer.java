@@ -130,7 +130,7 @@ public class DefaultServer extends AbstractVerticle {
 
     private void initMember() {
         JsonObject mongoConfig = new JsonObject()
-                //TODO .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest");
+                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest");
                 .put("connection_string", "mongodb://172.27.142.6:27017/abtest");
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
@@ -293,6 +293,10 @@ public class DefaultServer extends AbstractVerticle {
     }
 
     private void setupBizRoute(Router router) {
+        router.get("/").handler(routingContext -> {
+            routingContext.response().end("ok");
+        });
+
         router.get("/convert").handler(routingContext -> {
             DefMetricsValue metric = MetricsClient.getDefMetricsValue(routingContext);
             HttpServerRequest request = routingContext.request();
@@ -302,32 +306,36 @@ public class DefaultServer extends AbstractVerticle {
             String userId = Strings.nullToEmpty(request.getParam("userId"));
             String deviceId = Strings.nullToEmpty(request.getParam("deviceId"));
 
-            // 取上次状态
-            registry.get(userId, deviceId, lastResult -> {
+            // 取inputContext
+            InputContexts.get(httpClient, mongoClient, userId, deviceId, inputContext -> {
 
-                // 哈希分配
-                ProctorResult proctorResult = determineTestBucketMap(userId, deviceId);
+                // 取上次状态
+                registry.get(userId, deviceId, lastResult -> {
 
-                // 合并结果
-                combine(proctorResult, lastResult);
+                    // 哈希分配
+                    ProctorResult proctorResult = determineTestBucketMap(userId, deviceId, inputContext);
 
-                // 转换结果
-                JsonObject jsonResponse = toJson(proctorResult);
+                    // 合并结果
+                    combine(proctorResult, lastResult);
 
-                response.endHandler(v -> {
+                    // 转换结果
+                    JsonObject jsonResponse = toJson(proctorResult);
 
-                    // 记录状态
-                    registry.update(userId, deviceId, proctorResult);
+                    response.endHandler(v -> {
 
-                    // 保存日志
-                    saveLog(userId, deviceId, jsonResponse);
+                        // 记录状态
+                        registry.update(userId, deviceId, proctorResult);
+
+                        // 保存日志
+                        saveLog(userId, deviceId, jsonResponse);
+                    });
+
+                    // 发送应答
+                    response.end(jsonResponse.encode());
+
+                    // 记录总成功数
+                    metric.markCode(200);
                 });
-
-                // 发送应答
-                response.end(jsonResponse.encode());
-
-                // 记录总成功数
-                metric.markCode(200);
             });
         });
 
@@ -409,11 +417,11 @@ public class DefaultServer extends AbstractVerticle {
         return json;
     }
 
-    private ProctorResult determineTestBucketMap(String userId, String deviceId) {
+    private ProctorResult determineTestBucketMap(String userId, String deviceId, Map<String, Object> inputContext) {
         Identifiers identifiers = Identifiers.of(
                 TestType.USER_ID, userId,
                 TestType.DEVICE_ID, deviceId);
-        Map<String, Object> inputContext = Maps.newHashMap();
+        //Map<String, Object> inputContext = Maps.newHashMap();
         Map<String, Integer> forcedGroups = Collections.<String, Integer>emptyMap();
         Collection<String> testNameFilter = Collections.<String>emptyList();
         ProctorResult result = proctor.determineTestGroups(identifiers, inputContext, forcedGroups, testNameFilter);

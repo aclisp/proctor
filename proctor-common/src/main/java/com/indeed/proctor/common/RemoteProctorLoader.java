@@ -9,6 +9,7 @@ import com.indeed.proctor.common.admin.model.Test;
 import com.indeed.proctor.common.admin.model.TestGroup;
 import com.indeed.proctor.common.admin.model.TestMatrix;
 import com.indeed.proctor.common.model.*;
+import com.indeed.proctor.common.server.InputContexts;
 import org.apache.log4j.Logger;
 
 import javax.annotation.Nonnull;
@@ -196,17 +197,35 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                 default:
                     testDefinition.setTestType(TestType.RANDOM);
             }
+            // 设置测试规则
+            List<String> targetRules = Lists.newArrayList();
+            test.getTargets().forEach(target -> {
+                switch (target) {
+                    case Test.TARGET_NEW:
+                        targetRules.add(InputContexts.isBrandNewUser);
+                        break;
+                    case Test.TARGET_ALL:
+                        targetRules.add("true");
+                        break;
+                    default:
+                        LOGGER.warn("unknown test target `" + target + "`: no rule can be added");
+                }
+            });
+            // 根据测试状态改写规则
             switch (test.getState()) {
                 case Test.STATE_RUNNING:
-                    testDefinition.setRule("${true}");
                     break;
                 case Test.STATE_PAUSED:
-                    testDefinition.setRule("${false}");  // 暂停实验必须不能参与计算，这样新用户看不到它
+                    // 暂停实验必须不能参与计算，这样新用户看不到它
+                    targetRules.clear();
+                    targetRules.add("false");
                     break;
                 default:
-                    testDefinition.setRule("${false}");
+                    targetRules.clear();
+                    targetRules.add("false");
             }
             testDefinition.setState(Strings.nullToEmpty(test.getState()));
+            testDefinition.setRule("${" + String.join("||", targetRules) + "}");
 
             List<TestBucket> buckets = Lists.newArrayList();
             buckets.add(new TestBucket("inactive", -1, ""));

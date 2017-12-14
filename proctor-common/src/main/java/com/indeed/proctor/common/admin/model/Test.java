@@ -28,6 +28,8 @@ public class Test {
     public final static String PLATFORM_ANDROID = "android";
 
     private List<String> targets; //目标用户new all
+    public final static String TARGET_NEW = "new";
+    public final static String TARGET_ALL = "all";
 
     private List<String> excludes; //互斥实验ID
 

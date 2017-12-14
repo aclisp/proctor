@@ -1,5 +1,6 @@
 package com.indeed.proctor.common;
 
+import com.google.common.collect.Maps;
 import com.indeed.util.core.ReleaseVersion;
 import com.google.common.collect.Lists;
 import org.junit.Assert;
@@ -20,6 +21,34 @@ public class TestRuleEvaluator {
     public void setUp() throws Exception {
         final Map<String, Object> testConstants = Collections.<String, Object>singletonMap("LANGUAGES_ENABLED", Lists.newArrayList("en", "fr", "de"));
         ruleEvaluator = new RuleEvaluator(RuleEvaluator.EXPRESSION_FACTORY, RuleEvaluator.FUNCTION_MAPPER, testConstants);
+    }
+
+    @Test
+    public void testIsBrandNewUser() {
+        Map<String, Object> inputContext = Maps.newHashMap();
+        inputContext.put("deviceId", "somedeviceid");
+        inputContext.put("isBrandNewUser", false);
+        {
+            final String rule = "${isBrandNewUser}";
+            Assert.assertFalse("rule '" + rule + "' should be false for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+        {
+            final String rule = "${isBrandNewUser||true}";
+            Assert.assertTrue("rule '" + rule + "' should be true for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+        {
+            final String rule = "${isBrandNewUser||false}";
+            Assert.assertFalse("rule '" + rule + "' should be false for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+        inputContext.put("isBrandNewUser", true);
+        {
+            final String rule = "${isBrandNewUser}";
+            Assert.assertTrue("rule '" + rule + "' should be true for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
     }
 
     @Test
