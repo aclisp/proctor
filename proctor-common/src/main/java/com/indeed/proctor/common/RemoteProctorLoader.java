@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 
@@ -146,7 +147,9 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     private String getTestMatrixVersion(@Nonnull final TestMatrix testMatrix) {
         // Version以所有实验的内容的md5为准
         MessageDigest testsDigest = ProctorUtils.createMessageDigest();
-        testMatrix.getTests().stream().sorted(Comparator.comparing(Test::getTestId))
+        testMatrix.getTests().stream()
+                .filter(eligibleTest())
+                .sorted(Comparator.comparing(Test::getTestId))
                 .forEachOrdered(test -> {
                     try {
                         testsDigest.update(objectMapper.writeValueAsBytes(test));
@@ -155,6 +158,19 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                     }
                 });
         return Base64.getEncoder().encodeToString(testsDigest.digest());
+    }
+
+    private static Predicate<Test> eligibleTest() {
+        return test -> {
+            switch (test.getState()) {
+                case Test.STATE_RUNNING:
+                    return true;
+                case Test.STATE_PAUSED:
+                    return true;
+                default:
+                    return false;
+            }
+        };
     }
 
     @Nonnull
@@ -173,16 +189,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
         artifact.setAudit(audit);
 
         Map<String, ConsumableTestDefinition> testDefinitionMap = Maps.newHashMap();
-        testMatrix.getTests().stream().filter(test -> {
-            switch (test.getState()) {
-                case Test.STATE_RUNNING:
-                    return true;
-                case Test.STATE_PAUSED:
-                    return true;
-                default:
-                    return false;
-            }
-        }).forEach(test -> {
+        testMatrix.getTests().stream().filter(eligibleTest()).forEach(test -> {
             ConsumableTestDefinition testDefinition = new ConsumableTestDefinition();
             testDefinition.setSalt(test.getTestId());
             testDefinition.setVersion(test.getTestId() + "." + String.valueOf(test.getId()));
