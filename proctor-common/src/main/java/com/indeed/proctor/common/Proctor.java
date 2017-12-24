@@ -203,11 +203,14 @@ public class Proctor {
                     continue;
                 }
             }
-            final TestBucket testBucket;
+            TestBucket testBucket;
             if (identifier == null) {
                 testBucket = ((RandomTestChooser) testChooser).choose(null, inputContext);
             } else {
-                testBucket = ((StandardTestChooser) testChooser).choose(identifier, inputContext);
+                testBucket = testChooser.getTestDefinition().getWhiteList().get(identifier);
+                if (testBucket == null) {
+                    testBucket = ((StandardTestChooser) testChooser).choose(identifier, inputContext);
+                }
             }
             if (testBucket != null) {
                 testGroups.put(testName, testBucket);

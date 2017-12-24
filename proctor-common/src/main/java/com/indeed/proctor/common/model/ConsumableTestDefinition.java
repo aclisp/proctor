@@ -29,6 +29,8 @@ public class ConsumableTestDefinition {
     private String description;
     @Nonnull
     private String state;
+    @Nonnull
+    private Map<String, TestBucket> whiteList;
 
     public ConsumableTestDefinition() { /* intentionally empty */ }
 
@@ -130,5 +132,14 @@ public class ConsumableTestDefinition {
 
     public void setState(@Nonnull final String state) {
         this.state = state;
+    }
+
+    @Nonnull
+    public Map<String, TestBucket> getWhiteList() {
+        return whiteList;
+    }
+
+    public void setWhiteList(@Nonnull Map<String, TestBucket> whiteList) {
+        this.whiteList = whiteList;
     }
 }

@@ -1,5 +1,7 @@
 package com.indeed.proctor.common.admin.model;
 
+import java.util.List;
+
 public class TestGroup {
 
     private long id;//自增id
@@ -7,6 +9,7 @@ public class TestGroup {
     private String description;//实验描述
     private String variable; //变量值
     private int ratio; //万分之x 1-1000
+    private List<String> whiteList; //白名单
 
     private Test test;//对应的test的id
     public String getName() {
@@ -44,5 +47,11 @@ public class TestGroup {
     }
     public void setRatio(int ratio) {
         this.ratio = ratio;
+    }
+    public List<String> getWhiteList() {
+        return whiteList;
+    }
+    public void setWhiteList(List<String> whiteList) {
+        this.whiteList = whiteList;
     }
 }

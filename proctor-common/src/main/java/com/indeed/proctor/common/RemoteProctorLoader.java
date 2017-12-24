@@ -236,6 +236,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
 
             List<TestBucket> buckets = Lists.newArrayList();
             buckets.add(new TestBucket("inactive", -1, ""));
+            Map<String, TestBucket> whiteList = Maps.newHashMap();
             // 按TestGroup的variable排序
             AtomicInteger internalBucketId = new AtomicInteger(0);
             test.getTestGroups().stream().sorted(Comparator.comparing(TestGroup::getVariable))
@@ -245,8 +246,10 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                         bucket.setValue(internalBucketId.getAndIncrement());
                         bucket.setDescription("`" + testGroup.getName() + "` " + testGroup.getDescription());
                         buckets.add(bucket);
+                        testGroup.getWhiteList().forEach(identifier -> whiteList.put(identifier, bucket));
                     });
             testDefinition.setBuckets(buckets);
+            testDefinition.setWhiteList(whiteList);
 
             List<Allocation> allocations = Lists.newArrayList();
             Allocation allocation = new Allocation();
