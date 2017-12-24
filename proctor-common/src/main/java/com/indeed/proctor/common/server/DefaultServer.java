@@ -129,13 +129,17 @@ public class DefaultServer extends AbstractVerticle {
     }
 
     private void initMember() {
+        String mongoOptions = "?connectTimeoutMS=5000&socketTimeoutMS=2000";
         JsonObject mongoConfig = new JsonObject()
-                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest");
-                .put("connection_string", "mongodb://172.27.142.6:27017/abtest");
+                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest" + mongoOptions);
+                .put("connection_string", "mongodb://172.27.142.6:27017/abtest" + mongoOptions);
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
         registry = new MongoRegistry(vertx, context, mongoClient);
-        httpClient = vertx.createHttpClient();
+        HttpClientOptions httpClientOptions = new HttpClientOptions()
+                .setConnectTimeout(5000)
+                .setIdleTimeout(2);
+        httpClient = vertx.createHttpClient(httpClientOptions);
     }
 
     private void setupHttpServer() {
@@ -327,7 +331,7 @@ public class DefaultServer extends AbstractVerticle {
                         registry.update(userId, deviceId, proctorResult);
 
                         // 保存日志
-                        saveLog(userId, deviceId, jsonResponse);
+                        //saveLog(userId, deviceId, jsonResponse);
                     });
 
                     // 发送应答

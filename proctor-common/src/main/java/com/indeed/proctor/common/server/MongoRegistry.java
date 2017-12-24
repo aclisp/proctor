@@ -70,6 +70,7 @@ public class MongoRegistry extends Registry {
                 resultHandler.handle(proctorResult);
             } else {
                 LOGGER.error("Unable get from collection " + collection + ": " + res.cause().toString());
+                resultHandler.handle(null);
             }
         });
     }
