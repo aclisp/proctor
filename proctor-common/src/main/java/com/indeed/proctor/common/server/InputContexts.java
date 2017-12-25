@@ -44,10 +44,11 @@ public class InputContexts {
                             return;
                         }
                         LOGGER.debug("device `" + deviceId + "` -> not present in hiido, query locally...");
-                        mongoClient.count("registry",
-                                new JsonObject().put("_id", deviceId),
+                        JsonObject query = new JsonObject().put("_id", deviceId);
+                        JsonObject fields = new JsonObject().put("data", 1);
+                        mongoClient.findOne("registry", query, fields,
                                 res -> {
-                                    if (res.succeeded() && res.result() > 0) {
+                                    if (res.succeeded() && res.result() != null) {
                                         inputContext.put(isBrandNewUser, false);
                                     } else {
                                         inputContext.put(isBrandNewUser, true);

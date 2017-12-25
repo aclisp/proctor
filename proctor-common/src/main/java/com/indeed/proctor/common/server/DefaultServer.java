@@ -131,14 +131,18 @@ public class DefaultServer extends AbstractVerticle {
     private void initMember() {
         String mongoOptions = "?connectTimeoutMS=5000&socketTimeoutMS=2000&maxPoolSize=1000";
         JsonObject mongoConfig = new JsonObject()
-                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest" + mongoOptions);
-                .put("connection_string", "mongodb://172.27.142.6:27017/abtest" + mongoOptions);
+                .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest" + mongoOptions);
+                //.put("connection_string", "mongodb://172.27.142.6:27017/abtest" + mongoOptions);
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
         registry = new MongoRegistry(vertx, context, mongoClient);
         HttpClientOptions httpClientOptions = new HttpClientOptions()
                 .setConnectTimeout(5000)
-                .setIdleTimeout(2);
+                .setIdleTimeout(2)
+                .setKeepAlive(true)
+                .setMaxPoolSize(1000)
+                .setMaxWaitQueueSize(0)
+                .setPipelining(false);
         httpClient = vertx.createHttpClient(httpClientOptions);
     }
 
@@ -269,7 +273,7 @@ public class DefaultServer extends AbstractVerticle {
             ctx.next();
         });
 
-        router.route().handler(TimeoutHandler.create(60000));
+        router.route().handler(TimeoutHandler.create(60000, 524));
         router.route().handler(BodyHandler.create());
         router.route().handler(CorsHandler.create("*")
                 .allowedHeader("Authorization")
@@ -281,10 +285,19 @@ public class DefaultServer extends AbstractVerticle {
                 .allowedMethod(HttpMethod.POST));
 
         router.route().failureHandler(failureRoutingContext -> {
-            // Status code will be 500 for the RuntimeException or ??? for the other failure
+            int statusCode = failureRoutingContext.statusCode();
+            Throwable failure = failureRoutingContext.failure();
             HttpServerResponse response = failureRoutingContext.response();
-            response.setStatusCode(500).end();
-            metric.markCode(500);
+
+            if (failure != null) {
+                LOGGER.error("Got exception when handling route", failure);
+                response.setStatusCode(500).end();
+            } else {
+                LOGGER.error("Got failure code " + statusCode + " when handling route");
+                response.setStatusCode(statusCode).end();
+            }
+
+            metric.markCode(statusCode);
         });
 
         // Add default headers
@@ -324,6 +337,9 @@ public class DefaultServer extends AbstractVerticle {
 
                     // 转换结果
                     JsonObject jsonResponse = toJson(proctorResult);
+
+                    // 是否超时
+                    if (response.ended()) return;
 
                     response.endHandler(v -> {
 
