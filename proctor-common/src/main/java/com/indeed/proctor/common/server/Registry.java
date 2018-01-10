@@ -31,7 +31,7 @@ public abstract class Registry {
 
     abstract public void setupPeriodic();
 
-    abstract public void update(@Nonnull String userId, @Nonnull String deviceId, @Nonnull ProctorResult proctorResult);
+    abstract public void update(@Nonnull RequestScope requestScope, @Nonnull ProctorResult proctorResult);
 
-    abstract public void get(@Nonnull String userId, @Nonnull String deviceId, @Nonnull Handler<ProctorResult> resultHandler);
+    abstract public void get(@Nonnull RequestScope requestScope, @Nonnull Handler<ProctorResult> resultHandler);
 }

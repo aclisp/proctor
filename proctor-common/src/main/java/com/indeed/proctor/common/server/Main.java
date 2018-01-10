@@ -29,7 +29,7 @@ public class Main {
         */
 
         //TODO int instances = Runtime.getRuntime().availableProcessors();
-        int instances = 1;
+        int instances = Config.SERVER_INSTANCE_NUMBER;
         LOGGER.info("setup vertx with " + instances + " instances");
         Vertx vertx = Vertx.vertx();
         DeploymentOptions options = new DeploymentOptions().setInstances(instances);

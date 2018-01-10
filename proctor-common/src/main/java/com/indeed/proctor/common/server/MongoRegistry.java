@@ -30,26 +30,27 @@ public class MongoRegistry extends Registry {
     }
 
     @Override
-    public void update(@Nonnull String userId, @Nonnull String deviceId, @Nonnull ProctorResult proctorResult) {
+    public void update(@Nonnull RequestScope requestScope, @Nonnull ProctorResult proctorResult) {
         Map<String, String> data = Maps.newHashMap();
         proctorResult.getBuckets().forEach((testId, testBucket) -> {
             // 为了减小存储容量，只关心bucketName
             data.put(testId, testBucket.getName());
         });
         JsonObject document = new JsonObject()
-                .put("_id", deviceId)
+                .put("_id", requestScope.deviceId)
                 .put("data", data)
                 .put("timestamp", System.currentTimeMillis());
         mongoClient.save(collection, document, res -> {
             if (res.failed()) {
                 LOGGER.error("Unable save to collection " + collection + ": " + res.cause().toString());
+                requestScope.errorCode = ErrorCode.MONGODB_WRITE_ERROR;
             }
         });
     }
 
     @Override
-    public void get(@Nonnull String userId, @Nonnull String deviceId, @Nonnull Handler<ProctorResult> resultHandler) {
-        JsonObject query = new JsonObject().put("_id", deviceId);
+    public void get(@Nonnull RequestScope requestScope, @Nonnull Handler<ProctorResult> resultHandler) {
+        JsonObject query = new JsonObject().put("_id", requestScope.deviceId);
         JsonObject fields = new JsonObject().put("data", 1);
         mongoClient.findOne(collection, query, fields, res -> {
             if (res.succeeded()) {
@@ -70,6 +71,7 @@ public class MongoRegistry extends Registry {
                 resultHandler.handle(proctorResult);
             } else {
                 LOGGER.error("Unable get from collection " + collection + ": " + res.cause().toString());
+                requestScope.errorCode = ErrorCode.MONGODB_READ_ERROR;
                 resultHandler.handle(null);
             }
         });

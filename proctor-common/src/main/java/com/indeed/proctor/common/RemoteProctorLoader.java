@@ -9,6 +9,7 @@ import com.indeed.proctor.common.admin.model.Test;
 import com.indeed.proctor.common.admin.model.TestGroup;
 import com.indeed.proctor.common.admin.model.TestMatrix;
 import com.indeed.proctor.common.model.*;
+import com.indeed.proctor.common.server.Config;
 import com.indeed.proctor.common.server.InputContexts;
 import org.apache.log4j.Logger;
 
@@ -42,7 +43,7 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     }
 
     @Nonnull
-    private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
+    private final URL inputURL = new URL(Config.EXPERIMENT_SOURCE);
     //private final URL inputURL = new URL("https://abtest.yy.com/api/testList");
     @Nonnull
     private final ObjectMapper objectMapper = Serializers.lenient();

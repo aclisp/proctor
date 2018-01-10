@@ -35,7 +35,9 @@ public class MetricsClient {
                 serviceVersion,             //服务版本
                 new TimeScale(scales, TimeUnit.MILLISECONDS),                     //时延分布
                 false,           //isFailureCode, false:第6个参数是成功码,true: 第6个参数是失败码
-                0, 200, 204);             //状态码,表示成功或失败的代码,支持多个,要么int,要么字符串
+                ErrorCode.SUCCESS2,
+                ErrorCode.SUCCESS,
+                ErrorCode.SUCCESS_HTTP_NO_CONTENT);             //状态码,表示成功或失败的代码,支持多个,要么int,要么字符串
 
         builder.notSkipInitialPeriod();                 //指定不丢弃第1个上报周期的数据,建议设置
         builder.period(MetricsModelFactory.Period._1Min);        //设置上报周期为1分钟,还支持5分钟,(默认是1分钟)

@@ -17,22 +17,26 @@ public class InputContexts {
 
     public static final String isBrandNewUser = "isBrandNewUser";
 
-    public static void get(HttpClient httpClient,
-                           MongoClient mongoClient,
-                           String userId, String deviceId,
+    public static void get(RequestScope requestScope,
                            Handler<Map<String, Object>> resultHandler) {
+        String userId = requestScope.userId;
+        String deviceId = requestScope.deviceId;
+        HttpClient httpClient = requestScope.httpClient;
+        MongoClient mongoClient = requestScope.mongoClient;
+
         Map<String, Object> inputContext = Maps.newHashMap();
         inputContext.put("userId", userId);
         inputContext.put("deviceId", deviceId);
         inputContext.put(isBrandNewUser, false);
 
         // 去海度查询设备最后登录的时间
-        String hiidoServiceURL = "http://szhiidocosevice.yy.com/service/read";
+        String hiidoServiceURL = Config.HIIDO_SERVICE_URL;
         httpClient
                 .postAbs(hiidoServiceURL, response -> {
                     int staticCode = response.statusCode();
                     if (staticCode != 200) {
                         LOGGER.error("post to `" + hiidoServiceURL + "` got " + staticCode);
+                        requestScope.errorCode = ErrorCode.HIIDO_SERVICE_RESPONSE_CODE_IS_NOT_200;
                         resultHandler.handle(inputContext);
                         return;
                     }
@@ -41,6 +45,7 @@ public class InputContexts {
                         JsonArray data = result.getJsonArray("data", new JsonArray());
                         if (data.size() > 0 && data.getJsonObject(0).containsKey("dt")) {
                             LOGGER.debug("device `" + deviceId + "` -> dt `" + data.getJsonObject(0).getString("dt") + "`");
+                            requestScope.errorCode = ErrorCode.SUCCESS;
                             resultHandler.handle(inputContext);
                             return;
                         }
@@ -54,16 +59,19 @@ public class InputContexts {
                                     } else {
                                         inputContext.put(isBrandNewUser, true);
                                     }
+                                    requestScope.errorCode = ErrorCode.SUCCESS;
                                     resultHandler.handle(inputContext);
                                 });
                     }).exceptionHandler(t -> {
                         LOGGER.error("parse response from `" + hiidoServiceURL + "` got " + t.toString());
+                        requestScope.errorCode = ErrorCode.HIIDO_SERVICE_RESPONSE_PARSE_ERROR;
                         resultHandler.handle(inputContext);
                     });
                 })
                 .putHeader("content-type", "text/plain")
                 .exceptionHandler(t -> {
                     LOGGER.error("post to `" + hiidoServiceURL + "` got " + t.toString());
+                    requestScope.errorCode = ErrorCode.HIIDO_SERVICE_UNAVAILABLE;
                     resultHandler.handle(inputContext);
                 })
                 .end(new JsonObject()
@@ -91,12 +99,29 @@ public class InputContexts {
             LOGGER.info("device `" + res.get("deviceId") + "` -> " + res.get(isBrandNewUser));
         };
 
-        get(httpClient, mongoClient, "", "", h);
-        get(httpClient, mongoClient, "", "0", h);
-        get(httpClient, mongoClient, "", "6c2ca739d48197332e2fef404811775acbc7ead6", h);
-        get(httpClient, mongoClient, "", "0768c3e8b7372379c70e26bd7ebb5c75db8303d3", h);
-        get(httpClient, mongoClient, "", "881abe546d6743c8a894ede986673620", h);
-        get(httpClient, mongoClient, "", "1234567", h);
-        get(httpClient, mongoClient, "", "123456", h);
+        RequestScope requestScope = new RequestScope();
+        requestScope.httpClient = httpClient;
+        requestScope.mongoClient = mongoClient;
+
+        requestScope.deviceId = "";
+        get(requestScope, h);
+
+        requestScope.deviceId = "0";
+        get(requestScope, h);
+
+        requestScope.deviceId = "6c2ca739d48197332e2fef404811775acbc7ead6";
+        get(requestScope, h);
+
+        requestScope.deviceId = "0768c3e8b7372379c70e26bd7ebb5c75db8303d3";
+        get(requestScope, h);
+
+        requestScope.deviceId = "881abe546d6743c8a894ede986673620";
+        get(requestScope, h);
+
+        requestScope.deviceId = "1234567";
+        get(requestScope, h);
+
+        requestScope.deviceId = "123456";
+        get(requestScope, h);
     }
 }

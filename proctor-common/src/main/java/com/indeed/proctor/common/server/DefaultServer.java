@@ -39,7 +39,7 @@ import java.util.stream.IntStream;
 public class DefaultServer extends AbstractVerticle {
     private static final Logger LOGGER = Logger.getLogger(DefaultServer.class);
 
-    private static final String FALLBACK_TEST_MATRIX = "/data/yy/vxlog/abtesting/test-matrix.json";
+    private static final String FALLBACK_TEST_MATRIX = Config.FALLBACK_TEST_MATRIX;
 
     private Proctor proctor;
     private RemoteProctorLoader loader;
@@ -131,8 +131,7 @@ public class DefaultServer extends AbstractVerticle {
     private void initMember() {
         String mongoOptions = "?connectTimeoutMS=5000&socketTimeoutMS=2000&maxPoolSize=1000&maxIdleTimeMS=60000&waitQueueMultiple=1";
         JsonObject mongoConfig = new JsonObject()
-                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest" + mongoOptions);
-                .put("connection_string", "mongodb://172.27.142.6:27017/abtest" + mongoOptions);
+                .put("connection_string", Config.MONGODB_CONNECTION_STRING + mongoOptions);
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
         registry = new MongoRegistry(vertx, context, mongoClient);
@@ -291,7 +290,7 @@ public class DefaultServer extends AbstractVerticle {
 
             if (failure != null) {
                 LOGGER.error("Got exception when handling route", failure);
-                response.setStatusCode(500).end();
+                response.setStatusCode(ErrorCode.INTERNAL_SERVER_ERROR).end();
             } else {
                 LOGGER.error("Got failure code " + statusCode + " when handling route");
                 response.setStatusCode(statusCode).end();
@@ -323,11 +322,19 @@ public class DefaultServer extends AbstractVerticle {
             String userId = Strings.nullToEmpty(request.getParam("userId"));
             String deviceId = Strings.nullToEmpty(request.getParam("deviceId"));
 
+            // 设置请求域上下文变量
+            RequestScope requestScope = new RequestScope();
+            requestScope.httpClient = httpClient;
+            requestScope.mongoClient = mongoClient;
+            requestScope.userId = userId;
+            requestScope.deviceId = deviceId;
+            requestScope.errorCode = ErrorCode.SUCCESS;
+
             // 取inputContext
-            InputContexts.get(httpClient, mongoClient, userId, deviceId, inputContext -> {
+            InputContexts.get(requestScope, inputContext -> {
 
                 // 取上次状态
-                registry.get(userId, deviceId, lastResult -> {
+                registry.get(requestScope, lastResult -> {
 
                     // 哈希分配
                     ProctorResult proctorResult = determineTestBucketMap(userId, deviceId, inputContext);
@@ -344,7 +351,7 @@ public class DefaultServer extends AbstractVerticle {
                     response.endHandler(v -> {
 
                         // 记录状态
-                        registry.update(userId, deviceId, proctorResult);
+                        registry.update(requestScope, proctorResult);
 
                         // 保存日志
                         //saveLog(userId, deviceId, jsonResponse);
@@ -353,8 +360,8 @@ public class DefaultServer extends AbstractVerticle {
                     // 发送应答
                     response.end(jsonResponse.encode());
 
-                    // 记录总成功数
-                    metric.markCode(200);
+                    // 记录总数
+                    metric.markCode(requestScope.errorCode);
                 });
             });
         });
@@ -513,10 +520,10 @@ public class DefaultServer extends AbstractVerticle {
             data.put(testId, variationKey);
 
             String key = testId + "/" + variationKey;
-            MetricsClient.getDefMetricsValue(key).markCode(0);
+            MetricsClient.getDefMetricsValue(key).markCode(ErrorCode.SUCCESS2);
         }
         JsonObject json = new JsonObject();
-        json.put("code", 0);  // 成功
+        json.put("code", ErrorCode.SUCCESS2);  // 成功
         json.put("message", "Success");
         json.put("data", data);
         return json;
