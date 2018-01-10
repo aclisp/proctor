@@ -7,6 +7,7 @@ public class ErrorCode {
     final static int NOT_FOUND = 404;
     final static int INTERNAL_SERVER_ERROR = 500;
     final static int INTERNAL_SERVER_ERROR2 = -1;
+    final static int SERVER_PROCESSING_TIMEOUT = 524;
     final static int HIIDO_SERVICE_RESPONSE_CODE_IS_NOT_200 = 601;
     final static int HIIDO_SERVICE_RESPONSE_PARSE_ERROR = 602;
     final static int HIIDO_SERVICE_UNAVAILABLE = 603;

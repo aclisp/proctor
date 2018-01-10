@@ -272,7 +272,7 @@ public class DefaultServer extends AbstractVerticle {
             ctx.next();
         });
 
-        router.route().handler(TimeoutHandler.create(60000, 524));
+        router.route().handler(TimeoutHandler.create(60000, ErrorCode.SERVER_PROCESSING_TIMEOUT));
         router.route().handler(BodyHandler.create());
         router.route().handler(CorsHandler.create("*")
                 .allowedHeader("Authorization")
