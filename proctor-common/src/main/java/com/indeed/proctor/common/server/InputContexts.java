@@ -22,6 +22,7 @@ public class InputContexts {
                            String userId, String deviceId,
                            Handler<Map<String, Object>> resultHandler) {
         Map<String, Object> inputContext = Maps.newHashMap();
+        inputContext.put("userId", userId);
         inputContext.put("deviceId", deviceId);
         inputContext.put(isBrandNewUser, false);
 

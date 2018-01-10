@@ -42,8 +42,8 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
     }
 
     @Nonnull
-    //private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
-    private final URL inputURL = new URL("https://abtest.yy.com/api/testList");
+    private final URL inputURL = new URL("http://127.0.0.1:10100/proctor/adminModel.json");
+    //private final URL inputURL = new URL("https://abtest.yy.com/api/testList");
     @Nonnull
     private final ObjectMapper objectMapper = Serializers.lenient();
     @Nullable
@@ -213,6 +213,11 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                         break;
                     case Test.TARGET_ALL:
                         targetRules.add("true");
+                        break;
+                    case "uidEndsWith1":
+                        // intentionally do not use fn:endsWith
+                        // https://stackoverflow.com/questions/16750540/jstl-bug-in-function-endswith
+                        targetRules.add("proctor:endsWith(userId, '1')");
                         break;
                     default:
                         LOGGER.warn("unknown test target `" + target + "`: no rule can be added");

@@ -2,6 +2,7 @@ package com.indeed.proctor.common.server;
 
 import com.duowan.sysop.hawk.metrics.client2.type.DefMetricsValue;
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.indeed.proctor.common.*;
 import com.indeed.proctor.common.admin.model.Test;
@@ -31,10 +32,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 public class DefaultServer extends AbstractVerticle {
     private static final Logger LOGGER = Logger.getLogger(DefaultServer.class);
@@ -131,8 +131,8 @@ public class DefaultServer extends AbstractVerticle {
     private void initMember() {
         String mongoOptions = "?connectTimeoutMS=5000&socketTimeoutMS=2000&maxPoolSize=1000&maxIdleTimeMS=60000&waitQueueMultiple=1";
         JsonObject mongoConfig = new JsonObject()
-                .put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest" + mongoOptions);
-                //.put("connection_string", "mongodb://172.27.142.6:27017/abtest" + mongoOptions);
+                //.put("connection_string", "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest" + mongoOptions);
+                .put("connection_string", "mongodb://172.27.142.6:27017/abtest" + mongoOptions);
         mongoClient = MongoClient.createShared(vertx, mongoConfig);
         formatter.setTimeZone(Audit.DEFAULT_TIMEZONE);
         registry = new MongoRegistry(vertx, context, mongoClient);
@@ -333,7 +333,7 @@ public class DefaultServer extends AbstractVerticle {
                     ProctorResult proctorResult = determineTestBucketMap(userId, deviceId, inputContext);
 
                     // 合并结果
-                    combine(proctorResult, lastResult);
+                    combine(proctorResult, lastResult, userId, deviceId);
 
                     // 转换结果
                     JsonObject jsonResponse = toJson(proctorResult);
@@ -370,6 +370,87 @@ public class DefaultServer extends AbstractVerticle {
                 response.end(source + ": " + t.toString());
             }).end();
         });
+
+        router.get("/_simulate").handler(routingContext -> {
+            HttpServerRequest request = routingContext.request();
+            HttpServerResponse response = routingContext.response();
+            response.setChunked(true);
+
+            // 设置总样本数和检查点
+            String sampleSizeStr = request.getParam("sampleSize");
+            if (sampleSizeStr == null) sampleSizeStr = "1000000";
+            int sampleSize = Integer.parseInt(sampleSizeStr);
+            int checkPoint = 100000;
+
+            // 设置前提条件
+            Map<String, Object> inputContext = Maps.newHashMap();
+
+            // 设置分布为二级树，统计进入每个实验的用户进入其它实验的情况
+            Map<String, Map<String, AtomicInteger>> distribution = Maps.newHashMap();
+            List<String> allBuckets = Lists.newArrayList();
+            proctor.getArtifact().getTests().forEach((testId, testDef) -> {
+                testDef.getBuckets().forEach(testBucket -> {
+                    String distributionKey = testId + "/" + testBucket.getName();
+                    allBuckets.add(distributionKey);
+                });
+            });
+            allBuckets.forEach(distributionKey -> {
+                Map<String, AtomicInteger> others = Maps.newHashMap();
+                allBuckets.stream().filter(k -> !k.equals(distributionKey))
+                        .forEach(k -> {
+                            others.put(k, new AtomicInteger(0));
+                        });
+                others.put("total", new AtomicInteger(0));
+                distribution.put(distributionKey, others);
+            });
+
+            // 开始模拟
+            IntStream.range(1, sampleSize+1).forEach(i -> {
+                // 生成随机用户
+                String userId = String.valueOf(i);
+                String deviceId = UUID.randomUUID().toString().replace("-", "");
+                inputContext.put("userId", userId);
+                inputContext.put("deviceId", deviceId);
+
+                // 记录每次模拟迭代的输出
+                ProctorResult proctorResult = determineTestBucketMap(userId, deviceId, inputContext);
+                Map<String, TestBucket> buckets = proctorResult.getBuckets();
+                List<String> all = Lists.newArrayList();
+                buckets.forEach((testId, bucket) -> {
+                    String distributionKey = testId + "/" + bucket.getName();
+                    all.add(distributionKey);
+                });
+                all.forEach(distributionKey -> {
+                    Map<String, AtomicInteger> subDist = distribution.get(distributionKey);
+                    subDist.get("total").incrementAndGet();
+                    all.stream().filter(k -> !k.equals(distributionKey))
+                            .forEach(k -> {
+                                subDist.get(k).incrementAndGet();
+                            });
+                });
+
+                // 检查点打印输出
+                if (i % checkPoint == 0) {
+                    response.write("Sample size is " + i + ": the last userId is " + userId + ", deviceId is " + deviceId + "\n");
+                    distribution.keySet().stream().sorted().forEach(key -> {
+                        Map<String, AtomicInteger> subDist = distribution.get(key);
+                        int total = subDist.get("total").intValue();
+                        double totalRatio = total * 100.0 / i;
+                        response.write("  Experiment bucket: " + key + "\t\t" + total + "\t(" + totalRatio + "%)\n");
+                        subDist.keySet().stream().sorted().filter(k -> !k.equals("total"))
+                                .forEach(k -> {
+                                    int count = subDist.get(k).intValue();
+                                    double countRatio = count * 100.0 / i;
+                                    response.write("    Intersection: " + k + "\t\t" + count + "\t(" + countRatio + "%)\n");
+                                });
+                    });
+                    response.write("\n");
+                }
+            });
+
+            response.write("Done simulation\n");
+            response.end();
+        });
     }
 
     /**
@@ -377,7 +458,7 @@ public class DefaultServer extends AbstractVerticle {
      * @param proctorResult 当前实验结果，合并之后，会被改变
      * @param lastResult 上次实验结果，只读
      */
-    private void combine(ProctorResult proctorResult, ProctorResult lastResult) {
+    private void combine(ProctorResult proctorResult, ProctorResult lastResult, String userId, String deviceId) {
         if (lastResult == null)
             return;
 
@@ -393,9 +474,13 @@ public class DefaultServer extends AbstractVerticle {
                 })
                 // 给当前实验结果（必须不包含暂停实验），增加已暂停的实验
                 .forEach(testId -> {
-                    TestBucket nonExist = proctorResult.getBuckets().put(testId, lastResult.getBuckets().get(testId));
-                    if (nonExist != null) {
-                        LOGGER.error("A paused experiment `" + testId + "` is present");
+                    TestBucket lastBucket = lastResult.getBuckets().get(testId);
+                    TestBucket currBucket = proctorResult.getBuckets().put(testId, lastBucket);
+                    if (currBucket != null) {
+                        // 如果设备在白名单里，会进入此分支！
+                        LOGGER.warn("A paused experiment `" + testId + "` is present: userId=" + userId +
+                                " deviceId=" + deviceId + " currBucket=" + currBucket +
+                                " lastBucket=" + lastBucket);
                     }
                 });
     }

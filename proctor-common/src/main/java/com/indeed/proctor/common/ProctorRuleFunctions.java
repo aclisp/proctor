@@ -1,8 +1,8 @@
 package com.indeed.proctor.common;
 
-import java.util.Collection;
-
 import com.indeed.util.core.ReleaseVersion;
+
+import java.util.Collection;
 
 /**
  * Library of functions to make available to EL rules
@@ -38,5 +38,11 @@ public class ProctorRuleFunctions {
             throw new IllegalStateException("Cannot use wildcard as open upper bound of range: " + endExclusive);
         }
         return inRange(version, start, end);
+    }
+
+    public static boolean endsWith(String input, String substring) {
+        if (input == null) input = "";
+        if (substring == null) substring = "";
+        return input.endsWith(substring);
     }
 }
