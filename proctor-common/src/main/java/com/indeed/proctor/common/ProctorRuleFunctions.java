@@ -1,6 +1,7 @@
 package com.indeed.proctor.common;
 
 import com.indeed.util.core.ReleaseVersion;
+import org.apache.log4j.Logger;
 
 import java.util.Collection;
 
@@ -11,6 +12,8 @@ import java.util.Collection;
  */
 @SuppressWarnings("UnusedDeclaration")
 public class ProctorRuleFunctions {
+    private static final Logger LOGGER = Logger.getLogger(RemoteProctorLoader.class);
+
     public static boolean contains(final Collection c, final Object element) {
         return c.contains(element);
     }
@@ -44,5 +47,23 @@ public class ProctorRuleFunctions {
         if (input == null) input = "";
         if (substring == null) substring = "";
         return input.endsWith(substring);
+    }
+
+    public static String hdidToDigit(String hdid) {
+        String result = "";
+        if (hdid == null || hdid.isEmpty()) {
+            return result;
+        }
+        int digitLength = 8;
+        String formatHdid = hdid.replace("-", "").toLowerCase();
+        if (formatHdid.length() > digitLength) {
+            formatHdid = formatHdid.substring(formatHdid.length() - digitLength);
+        }
+        try {
+            result = String.format("%02d", Long.valueOf(formatHdid, 16));
+        } catch (NumberFormatException e) {
+            LOGGER.error(String.format("hdidToDigit failed with hdid %s: ", hdid) + e.toString());
+        }
+        return result;
     }
 }

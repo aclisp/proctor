@@ -220,6 +220,10 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                         // https://stackoverflow.com/questions/16750540/jstl-bug-in-function-endswith
                         targetRules.add("proctor:endsWith(userId, '1')");
                         break;
+                    case "hdid_last_digit_one_two":
+                        targetRules.add("proctor:endsWith(proctor:hdidToDigit(deviceId), '1')");
+                        targetRules.add("proctor:endsWith(proctor:hdidToDigit(deviceId), '2')");
+                        break;
                     default:
                         LOGGER.warn("unknown test target `" + target + "`: no rule can be added");
                 }

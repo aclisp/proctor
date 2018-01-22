@@ -52,6 +52,36 @@ public class TestRuleEvaluator {
     }
 
     @Test
+    public void test_hdid_last_digit_one_two() {
+        Map<String, Object> inputContext = Maps.newHashMap();
+        inputContext.put("deviceId", "6c2ca739d48197332e2fef404811775acbc7ead6");
+        {
+            final String rule = "${ proctor:endsWith( proctor:hdidToDigit(deviceId), '0' ) }";
+            Assert.assertTrue("rule '" + rule + "' should be true for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+        inputContext.put("deviceId", "6c2ca739d48197332e2fef404811775acbc7ead7");
+        {
+            final String rule = "${ proctor:endsWith( proctor:hdidToDigit(deviceId), '1' ) }";
+            Assert.assertTrue("rule '" + rule + "' should be true for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+        inputContext.put("deviceId", "6c2ca739d48197332e2fef404811775acbc7ead8");
+        {
+            final String rule = "${ proctor:endsWith( proctor:hdidToDigit(deviceId), '1' ) || " +
+                                  " proctor:endsWith( proctor:hdidToDigit(deviceId), '2' ) }";
+            Assert.assertTrue("rule '" + rule + "' should be true for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+        inputContext.put("deviceId", "6c2ca739d48197332e2fef404811775acbc7ead9");
+        {
+            final String rule = "${ proctor:endsWith( proctor:hdidToDigit(deviceId), '1' ) }";
+            Assert.assertFalse("rule '" + rule + "' should be false for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+    }
+
+    @Test
     public void testNullRule() {
         Assert.assertTrue("null rule should be true", ruleEvaluator.evaluateBooleanRule(null, Collections.<String, Object>emptyMap()));
     }
