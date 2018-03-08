@@ -327,8 +327,12 @@ public class DefaultServer extends AbstractVerticle {
             String appVersion = Strings.nullToEmpty(request.getParam("appVersion"));
             String phoneType = Strings.nullToEmpty(request.getParam("phoneType"));
             String[] widthAndHeight = resolution.split("\\*");
-            Integer resolutionWidth = Integer.valueOf(widthAndHeight[0]);
-            Integer resolutionHeight = Integer.valueOf(widthAndHeight[1]);
+            Integer resolutionWidth = 0;
+            Integer resolutionHeight = 0;
+            if (widthAndHeight.length >= 2) {
+                resolutionWidth = Integer.valueOf(widthAndHeight[0]);
+                resolutionHeight = Integer.valueOf(widthAndHeight[1]);
+            }
 
             // 设置请求域上下文变量
             RequestScope requestScope = new RequestScope();
