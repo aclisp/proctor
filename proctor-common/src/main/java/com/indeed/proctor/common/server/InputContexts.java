@@ -27,6 +27,12 @@ public class InputContexts {
         Map<String, Object> inputContext = Maps.newHashMap();
         inputContext.put("userId", userId);
         inputContext.put("deviceId", deviceId);
+        inputContext.put("platform", requestScope.platform);
+        inputContext.put("systemVersion", requestScope.systemVersion);
+        inputContext.put("resolutionWidth", requestScope.resolutionWidth);
+        inputContext.put("resolutionHeight", requestScope.resolutionHeight);
+        inputContext.put("appVersion", requestScope.appVersion);
+        inputContext.put("phoneType", requestScope.phoneType);
         inputContext.put(isBrandNewUser, false);
 
         // 去海度查询设备最后登录的时间

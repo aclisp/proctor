@@ -321,6 +321,14 @@ public class DefaultServer extends AbstractVerticle {
             // 处理参数
             String userId = Strings.nullToEmpty(request.getParam("userId"));
             String deviceId = Strings.nullToEmpty(request.getParam("deviceId"));
+            String platform = Strings.nullToEmpty(request.getParam("platform"));
+            String systemVersion = Strings.nullToEmpty(request.getParam("systemVersion"));
+            String resolution = Strings.nullToEmpty(request.getParam("resolution"));
+            String appVersion = Strings.nullToEmpty(request.getParam("appVersion"));
+            String phoneType = Strings.nullToEmpty(request.getParam("phoneType"));
+            String[] widthAndHeight = resolution.split("\\*");
+            Integer resolutionWidth = Integer.valueOf(widthAndHeight[0]);
+            Integer resolutionHeight = Integer.valueOf(widthAndHeight[1]);
 
             // 设置请求域上下文变量
             RequestScope requestScope = new RequestScope();
@@ -328,6 +336,12 @@ public class DefaultServer extends AbstractVerticle {
             requestScope.mongoClient = mongoClient;
             requestScope.userId = userId;
             requestScope.deviceId = deviceId;
+            requestScope.platform = platform;
+            requestScope.systemVersion = systemVersion;
+            requestScope.resolutionWidth = resolutionWidth;
+            requestScope.resolutionHeight = resolutionHeight;
+            requestScope.appVersion = appVersion;
+            requestScope.phoneType = phoneType;
             requestScope.errorCode = ErrorCode.SUCCESS;
 
             // 取inputContext

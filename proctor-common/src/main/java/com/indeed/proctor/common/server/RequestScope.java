@@ -9,5 +9,11 @@ public class RequestScope {
     MongoClient mongoClient;
     String userId;
     String deviceId;
+    String platform;
+    String systemVersion;
+    Integer resolutionWidth;
+    Integer resolutionHeight;
+    String appVersion;
+    String phoneType;
     int errorCode;
 }

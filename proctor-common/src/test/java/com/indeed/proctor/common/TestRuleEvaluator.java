@@ -24,6 +24,18 @@ public class TestRuleEvaluator {
     }
 
     @Test
+    public void test_not_small_iphone() {
+        Map<String, Object> inputContext = Maps.newHashMap();
+        inputContext.put("platform", "iOS");
+        inputContext.put("resolutionWidth", new Integer(640));
+        {
+            final String rule = "${platform=='iOS'&&resolutionWidth>640}";
+            Assert.assertFalse("rule '" + rule + "' should be false for " + inputContext,
+                    ruleEvaluator.evaluateBooleanRule(rule, inputContext));
+        }
+    }
+
+    @Test
     public void testIsBrandNewUser() {
         Map<String, Object> inputContext = Maps.newHashMap();
         inputContext.put("deviceId", "somedeviceid");

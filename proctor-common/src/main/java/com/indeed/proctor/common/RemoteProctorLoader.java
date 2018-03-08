@@ -224,6 +224,9 @@ public class RemoteProctorLoader extends AbstractProctorLoader {
                         targetRules.add("proctor:endsWith(proctor:hdidToDigit(deviceId), '1')");
                         targetRules.add("proctor:endsWith(proctor:hdidToDigit(deviceId), '2')");
                         break;
+                    case "not_small_iphone":
+                        targetRules.add("platform=='iOS'&&resolutionWidth>640");
+                        break;
                     default:
                         LOGGER.warn("unknown test target `" + target + "`: no rule can be added");
                 }
