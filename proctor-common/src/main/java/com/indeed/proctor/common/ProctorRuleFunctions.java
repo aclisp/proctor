@@ -12,7 +12,7 @@ import java.util.Collection;
  */
 @SuppressWarnings("UnusedDeclaration")
 public class ProctorRuleFunctions {
-    private static final Logger LOGGER = Logger.getLogger(RemoteProctorLoader.class);
+    private static final Logger LOGGER = Logger.getLogger(ProctorRuleFunctions.class);
 
     public static boolean contains(final Collection c, final Object element) {
         return c.contains(element);

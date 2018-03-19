@@ -129,7 +129,7 @@ public class DefaultServer extends AbstractVerticle {
     }
 
     private void initMember() {
-        String mongoOptions = "?connectTimeoutMS=5000&socketTimeoutMS=2000&maxPoolSize=1000&maxIdleTimeMS=60000&waitQueueMultiple=1";
+        String mongoOptions = "?connectTimeoutMS=5000&socketTimeoutMS=2000&maxPoolSize=1000&maxIdleTimeMS=60000&waitQueueMultiple=1&readPreference=secondaryPreferred";
         JsonObject mongoConfig = new JsonObject()
                 .put("connection_string", Config.MONGODB_CONNECTION_STRING + mongoOptions);
         mongoClient = MongoClient.createShared(vertx, mongoConfig);

@@ -2,7 +2,7 @@ package com.indeed.proctor.common.server;
 
 public class Config {
 
-    final static String MONGODB_CONNECTION_STRING = "mongodb://abman:w80IgG8ebQq@221.228.107.70:10005,183.36.121.130:10006,61.140.10.115:10003/abtest";
+    final static String MONGODB_CONNECTION_STRING = "mongodb://abman:w80IgG8ebQq@61.160.36.165:10002,183.36.121.130:10006,61.140.10.115:10003/abtest";
     //final static String MONGODB_CONNECTION_STRING = "mongodb://172.27.142.6:27017/abtest";
 
     public final static String EXPERIMENT_SOURCE = "https://abtest.yy.com/api/testList";
